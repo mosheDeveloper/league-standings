@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>League Standings</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121933; --muted:#a6b1d5; --text:#ecf1ff; --accent:#6ea2ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif; }
+    .wrap { max-width:1200px; margin: 32px auto; padding: 0 16px; }
+    h1 { font-size: clamp(24px, 3vw, 40px); margin: 0 0 16px; }
+    .sub { color: var(--muted); margin-bottom: 24px; }
+    .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .table { width:100%; border-collapse: collapse; font-size: 14px; }
+    .table thead th { text-align: left; padding: 10px 12px; position: sticky; top:0; background: #0f204a; color: #cfe0ff; }
+    .table tbody td { padding: 10px 12px; border-top: 1px solid #26345e; }
+    .table tbody tr:hover { background: #18244a; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#1b2a59; color:#cfe0ff; font-size:12px; }
+    a.dl { text-decoration: none; color: var(--accent); }
+    footer { color: var(--muted); margin-top: 18px; font-size: 13px; }
+    </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏆 League Standings</h1>
+    <div class="sub">Auto-built from <code>games.csv</code>. <span class="pill">Last build: 2025-10-07 18:55 UTC</span></div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h2 style="margin:0 0 8px">Table</h2>
+      <div style="overflow:auto"><table class="dataframe table">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Team</th>
+      <th>Played</th>
+      <th>Wins</th>
+      <th>Draws</th>
+      <th>Losses</th>
+      <th>GF</th>
+      <th>GA</th>
+      <th>GD</th>
+      <th>Points</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Team A</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td>Team C</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>0</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <td>Team D</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>Team B</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>4</td>
+      <td>5</td>
+      <td>-1</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table></div>
+      <p style="margin-top:12px"><a class="dl" href="./standings.csv" download>⬇️ Download standings.csv</a></p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px">Games (all rounds)</h2>
+      <div style="overflow:auto"><table class="dataframe table">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Round</th>
+      <th>Date</th>
+      <th>HomeTeam</th>
+      <th>AwayTeam</th>
+      <th>HomeGoals</th>
+      <th>AwayGoals</th>
+      <th>Stadium</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>2025-08-01</td>
+      <td>Team A</td>
+      <td>Team B</td>
+      <td>2</td>
+      <td>1</td>
+      <td>Alpha Stadium</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>2025-08-01</td>
+      <td>Team C</td>
+      <td>Team D</td>
+      <td>0</td>
+      <td>0</td>
+      <td>Beta Field</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>2025-08-02</td>
+      <td>Team B</td>
+      <td>Team C</td>
+      <td>3</td>
+      <td>3</td>
+      <td>Gamma Park</td>
+    </tr>
+  </tbody>
+</table></div>
+    </div>
+
+    <footer>GF = Goals For, GA = Goals Against, GD = Goal Difference.</footer>
+  </div>
+</body>
+</html>
