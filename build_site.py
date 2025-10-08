@@ -33,11 +33,50 @@ def _apply_competition_rank(sorted_df: pd.DataFrame) -> pd.Series:
         ranks.append(last_rank)
     return pd.Series(ranks, index=sorted_df.index, name="Rank")
 
-def compute_standings(df: pd.DataFrame) -> pd.DataFrame:
+def _ensure_all_teams(standings: pd.DataFrame, games: pd.DataFrame, teams_csv_path: str | None) -> pd.DataFrame:
+    # Build team list: prefer explicit teams.csv; else infer from games
+    if teams_csv_path and os.path.exists(teams_csv_path):
+        team_list = pd.read_csv(teams_csv_path)
+        if "Team" not in team_list.columns:
+            raise ValueError("teams.csv must have a 'Team' column")
+        all_teams = team_list["Team"].astype(str).str.strip()
+        all_teams = all_teams[all_teams != ""]
+    else:
+        # Infer from games
+        all_teams = pd.Series(pd.unique(pd.concat([games["HomeTeam"], games["AwayTeam"]], ignore_index=True))).astype(str).str.strip()
+        all_teams = all_teams[(all_teams != "") & (~all_teams.isna())]
+
+    # Create a zero-row per team and left-join with computed standings
+    zeros = pd.DataFrame({"Team": all_teams})
+    zeros["Played"] = zeros["Wins"] = zeros["Draws"] = zeros["Losses"] = 0
+    zeros["GF"] = zeros["GA"] = zeros["GD"] = zeros["Points"] = 0
+
+    merged = zeros.merge(standings, on="Team", how="left", suffixes=("_z",""))
+    # Fill with zeros where missing
+    for col in ["Played","Wins","Draws","Losses","GF","GA","Points","GD"]:
+        merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0).astype(int)
+    # Drop helper columns if any
+    keep = ["Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"]
+    return merged[keep]
+
+def compute_standings(df: pd.DataFrame, teams_csv_path: str | None = None) -> pd.DataFrame:
+    # Aggregate only if there are valid games
     if df.empty:
-        return pd.DataFrame(columns=[
-            "Rank","Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"
-        ])
+        # No games yet → return zeros for all teams from teams.csv (if provided) or empty
+        if teams_csv_path and os.path.exists(teams_csv_path):
+            team_list = pd.read_csv(teams_csv_path)
+            if "Team" not in team_list.columns:
+                raise ValueError("teams.csv must have a 'Team' column")
+            st = pd.DataFrame({"Team": team_list["Team"].astype(str).str.strip()})
+            st = st[st["Team"] != ""]
+            for c in ["Played","Wins","Draws","Losses","GF","GA","GD","Points"]:
+                st[c] = 0
+            st = st.sort_values(by=["Points","GD","GF","Team"], ascending=[False, False, False, True]).reset_index(drop=True)
+            st["Rank"] = range(1, len(st)+1)  # alphabetical tie-break to make ranks unique when all zeros
+            cols = ["Rank","Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"]
+            return st[cols]
+        else:
+            return pd.DataFrame(columns=["Rank","Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"])
 
     df[["HomePts","AwayPts","Outcome"]] = df.apply(per_match_points, axis=1, result_type="expand")
 
@@ -64,9 +103,14 @@ def compute_standings(df: pd.DataFrame) -> pd.DataFrame:
     all_stats = pd.concat([home, away], ignore_index=True)
     tbl = all_stats.groupby("Team", as_index=False).sum(numeric_only=True)
     tbl["GD"] = tbl["GF"] - tbl["GA"]
-    tbl = tbl.sort_values(by=["Points","GD","GF","Team"], ascending=[False, False, False, True]).reset_index(drop=True)
 
+    # Include all teams (zeros) before sort/rank
+    tbl = _ensure_all_teams(tbl, df, teams_csv_path)
+
+    # Sort and rank
+    tbl = tbl.sort_values(by=["Points","GD","GF","Team"], ascending=[False, False, False, True]).reset_index(drop=True)
     tbl["Rank"] = _apply_competition_rank(tbl)
+
     cols = ["Rank","Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"]
     return tbl[cols]
 
@@ -81,29 +125,17 @@ def per_round_table(df: pd.DataFrame) -> pd.DataFrame:
 def df_to_html_table(df: pd.DataFrame) -> str:
     return df.to_html(index=False, border=0, classes="table", justify="center", escape=False)
 
-def build_index(games_csv: str, out_dir: str):
+def build_index(games_csv: str, out_dir: str, teams_csv_path: str | None = "teams.csv"):
     os.makedirs(out_dir, exist_ok=True)
 
     try:
         games = load_games(games_csv)
     except Exception as e:
-        html = """<!DOCTYPE html>
-<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>League Standings</title>
-<style>
-body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; margin: 24px; }
-.wrap { max-width: 1100px; margin: 0 auto; }
-.error { background: #ffecec; color: #b00020; padding: 12px 16px; border-radius: 8px; }
-</style></head>
-<body><div class='wrap'>
-<h1>🏆 League Standings</h1>
-<p class='error'><strong>Error:</strong> %s</p>
-<p>Make sure your games.csv has: Round, GameInRound, Date, HomeTeam, AwayTeam, HomeGoals, AwayGoals, Stadium</p>
-</div></body></html>""" % (str(e),)
+        html = "<html><body><h1>Error</h1><pre>%s</pre></body></html>" % (str(e),)
         Path(out_dir, "index.html").write_text(html, encoding="utf-8")
         return
 
-    standings = compute_standings(games)
+    standings = compute_standings(games, teams_csv_path)
     rounds_view = per_round_table(games)
 
     Path(out_dir, "standings.csv").write_text(standings.to_csv(index=False, encoding="utf-8-sig"), encoding="utf-8")
@@ -139,7 +171,7 @@ body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-se
 <body>
   <div class="wrap">
     <h1>🏆 League Standings</h1>
-    <div class="sub">Auto-built from <code>games.csv</code>.</div>
+    <div class="sub">Auto-built from <code>games.csv</code> and <code>teams.csv</code>.</div>
 
     <div class="card" style="margin-bottom:16px">
       <h2 style="margin:0 0 8px">Table</h2>
@@ -162,5 +194,6 @@ body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-se
 if __name__ == "__main__":
     games_csv = sys.argv[1] if len(sys.argv) > 1 else "games.csv"
     out_dir = sys.argv[2] if len(sys.argv) > 2 else "dist"
-    build_index(games_csv, out_dir)
+    teams_csv_path = sys.argv[3] if len(sys.argv) > 3 else "teams.csv"
+    build_index(games_csv, out_dir, teams_csv_path)
     print(f"Built site into: {out_dir}")
