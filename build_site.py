@@ -21,9 +21,23 @@ def per_match_points(row):
     if hg < ag:   return 0, 3, "A"
     return 1, 1, "D"
 
+def _apply_competition_rank(sorted_df: pd.DataFrame) -> pd.Series:
+    ranks = []
+    last_key = None
+    last_rank = 0
+    for i, row in enumerate(sorted_df.itertuples(index=False), start=1):
+        key = (row.Points, row.GD, row.GF)
+        if key != last_key:
+            last_rank = i
+            last_key = key
+        ranks.append(last_rank)
+    return pd.Series(ranks, index=sorted_df.index, name="Rank")
+
 def compute_standings(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"])
+        return pd.DataFrame(columns=[
+            "Rank","Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"
+        ])
 
     df[["HomePts","AwayPts","Outcome"]] = df.apply(per_match_points, axis=1, result_type="expand")
 
@@ -51,7 +65,10 @@ def compute_standings(df: pd.DataFrame) -> pd.DataFrame:
     tbl = all_stats.groupby("Team", as_index=False).sum(numeric_only=True)
     tbl["GD"] = tbl["GF"] - tbl["GA"]
     tbl = tbl.sort_values(by=["Points","GD","GF","Team"], ascending=[False, False, False, True]).reset_index(drop=True)
-    return tbl[["Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"]]
+
+    tbl["Rank"] = _apply_competition_rank(tbl)
+    cols = ["Rank","Team","Played","Wins","Draws","Losses","GF","GA","GD","Points"]
+    return tbl[cols]
 
 def per_round_table(df: pd.DataFrame) -> pd.DataFrame:
     cols = ["Round","Date","HomeTeam","AwayTeam","HomeGoals","AwayGoals","Stadium"]
@@ -66,40 +83,30 @@ def df_to_html_table(df: pd.DataFrame) -> str:
 
 def build_index(games_csv: str, out_dir: str):
     os.makedirs(out_dir, exist_ok=True)
-    now = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
     try:
         games = load_games(games_csv)
     except Exception as e:
-        # Escape braces in CSS by doubling them inside this f-string
-        index_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>League Standings</title>
-  <style>
-    body {{ font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; margin: 24px; }}
-    .wrap {{ max-width: 1100px; margin: 0 auto; }}
-    .error {{ background: #ffecec; color: #b00020; padding: 12px 16px; border-radius: 8px; }}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>🏆 League Standings</h1>
-    <p class="error"><strong>Error:</strong> {str(e)}</p>
-    <p>Make sure your <code>games.csv</code> has the columns: Round, GameInRound, Date, HomeTeam, AwayTeam, HomeGoals, AwayGoals, Stadium</p>
-    <p><small>Last build: {now}</small></p>
-  </div>
-</body>
-</html>"""
-        Path(out_dir, "index.html").write_text(index_html, encoding="utf-8")
+        html = """<!DOCTYPE html>
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>League Standings</title>
+<style>
+body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; margin: 24px; }
+.wrap { max-width: 1100px; margin: 0 auto; }
+.error { background: #ffecec; color: #b00020; padding: 12px 16px; border-radius: 8px; }
+</style></head>
+<body><div class='wrap'>
+<h1>🏆 League Standings</h1>
+<p class='error'><strong>Error:</strong> %s</p>
+<p>Make sure your games.csv has: Round, GameInRound, Date, HomeTeam, AwayTeam, HomeGoals, AwayGoals, Stadium</p>
+</div></body></html>""" % (str(e),)
+        Path(out_dir, "index.html").write_text(html, encoding="utf-8")
         return
 
     standings = compute_standings(games)
     rounds_view = per_round_table(games)
 
-    standings_path = Path(out_dir, "standings.csv")
-    standings.to_csv(standings_path, index=False, encoding="utf-8-sig")
+    Path(out_dir, "standings.csv").write_text(standings.to_csv(index=False, encoding="utf-8-sig"), encoding="utf-8")
 
     css = """
     :root { --bg:#0b1020; --card:#121933; --muted:#a6b1d5; --text:#ecf1ff; --accent:#6ea2ff; }
@@ -109,8 +116,6 @@ def build_index(games_csv: str, out_dir: str):
     h1 { font-size: clamp(24px, 3vw, 40px); margin: 0 0 16px; }
     .sub { color: var(--muted); margin-bottom: 24px; }
     .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
     .table { width:100%; border-collapse: collapse; font-size: 14px; }
     .table thead th { text-align: left; padding: 10px 12px; position: sticky; top:0; background: #0f204a; color: #cfe0ff; }
     .table tbody td { padding: 10px 12px; border-top: 1px solid #26345e; }
@@ -134,7 +139,7 @@ def build_index(games_csv: str, out_dir: str):
 <body>
   <div class="wrap">
     <h1>🏆 League Standings</h1>
-    <div class="sub">Auto-built from <code>games.csv</code>. <span class="pill">Last build: {dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}</span></div>
+    <div class="sub">Auto-built from <code>games.csv</code>.</div>
 
     <div class="card" style="margin-bottom:16px">
       <h2 style="margin:0 0 8px">Table</h2>
@@ -147,7 +152,7 @@ def build_index(games_csv: str, out_dir: str):
       <div style="overflow:auto">{rounds_html}</div>
     </div>
 
-    <footer>GF = Goals For, GA = Goals Against, GD = Goal Difference.</footer>
+    <footer>GF = Goals For, GA = Goals Against, GD = Goal Difference. Rank uses competition style (1,1,3...).</footer>
   </div>
 </body>
 </html>"""
