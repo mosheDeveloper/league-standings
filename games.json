@@ -1,0 +1,1082 @@
+[
+  {
+    "Round": 1,
+    "GameInRound": 1,
+    "Date": "2025-10-04",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": 3,
+    "AwayGoals": 1
+  },
+  {
+    "Round": 1,
+    "GameInRound": 2,
+    "Date": "2025-10-04",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": 2,
+    "AwayGoals": 2
+  },
+  {
+    "Round": 1,
+    "GameInRound": 3,
+    "Date": "2025-10-04",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": 4,
+    "AwayGoals": 2
+  },
+  {
+    "Round": 1,
+    "GameInRound": 4,
+    "Date": "2025-10-04",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 1,
+    "GameInRound": 5,
+    "Date": "2025-10-04",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 1,
+    "GameInRound": 6,
+    "Date": "2025-10-04",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 1,
+    "GameInRound": 7,
+    "Date": "2025-10-04",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 1,
+    "GameInRound": 8,
+    "Date": "2025-10-04",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 1,
+    "Date": "2025-10-18",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 2,
+    "Date": "2025-10-18",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 3,
+    "Date": "2025-10-18",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 4,
+    "Date": "2025-10-18",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 5,
+    "Date": "2025-10-18",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 6,
+    "Date": "2025-10-18",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 7,
+    "Date": "2025-10-18",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 2,
+    "GameInRound": 8,
+    "Date": "2025-10-18",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 1,
+    "Date": "2025-11-08",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 2,
+    "Date": "2025-11-08",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 3,
+    "Date": "2025-11-08",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 4,
+    "Date": "2025-11-08",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 5,
+    "Date": "2025-11-08",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 6,
+    "Date": "2025-11-08",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 7,
+    "Date": "2025-11-08",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 3,
+    "GameInRound": 8,
+    "Date": "2025-11-08",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 1,
+    "Date": "2025-12-06",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 2,
+    "Date": "2025-12-06",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 3,
+    "Date": "2025-12-06",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "הפועל לב השרון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 4,
+    "Date": "2025-12-06",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 5,
+    "Date": "2025-12-06",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 6,
+    "Date": "2025-12-06",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 7,
+    "Date": "2025-12-06",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 4,
+    "GameInRound": 8,
+    "Date": "2025-12-06",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 1,
+    "Date": "2025-12-20",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 2,
+    "Date": "2025-12-20",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 3,
+    "Date": "2025-12-20",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 4,
+    "Date": "2025-12-20",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 5,
+    "Date": "2025-12-20",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 6,
+    "Date": "2025-12-20",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 7,
+    "Date": "2025-12-20",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 5,
+    "GameInRound": 8,
+    "Date": "2025-12-20",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 1,
+    "Date": "2026-01-10",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 2,
+    "Date": "2026-01-10",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 3,
+    "Date": "2026-01-10",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 4,
+    "Date": "2026-01-10",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "הפועל לב השרון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 5,
+    "Date": "2026-01-10",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 6,
+    "Date": "2026-01-10",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 7,
+    "Date": "2026-01-10",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 6,
+    "GameInRound": 8,
+    "Date": "2026-01-10",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 1,
+    "Date": "2026-01-31",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 2,
+    "Date": "2026-01-31",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 3,
+    "Date": "2026-01-31",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 4,
+    "Date": "2026-01-31",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 5,
+    "Date": "2026-01-31",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 6,
+    "Date": "2026-01-31",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 7,
+    "Date": "2026-01-31",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 7,
+    "GameInRound": 8,
+    "Date": "2026-01-31",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 1,
+    "Date": "2026-02-14",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 2,
+    "Date": "2026-02-14",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 3,
+    "Date": "2026-02-14",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 4,
+    "Date": "2026-02-14",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 5,
+    "Date": "2026-02-14",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "הפועל לב השרון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 6,
+    "Date": "2026-02-14",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 7,
+    "Date": "2026-02-14",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 8,
+    "GameInRound": 8,
+    "Date": "2026-02-14",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 1,
+    "Date": "2026-02-28",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 2,
+    "Date": "2026-02-28",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 3,
+    "Date": "2026-02-28",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 4,
+    "Date": "2026-02-28",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 5,
+    "Date": "2026-02-28",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 6,
+    "Date": "2026-02-28",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 7,
+    "Date": "2026-02-28",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 9,
+    "GameInRound": 8,
+    "Date": "2026-02-28",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 1,
+    "Date": "2026-03-14",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 2,
+    "Date": "2026-03-14",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 3,
+    "Date": "2026-03-14",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 4,
+    "Date": "2026-03-14",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 5,
+    "Date": "2026-03-14",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 6,
+    "Date": "2026-03-14",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "הפועל לב השרון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 7,
+    "Date": "2026-03-14",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 10,
+    "GameInRound": 8,
+    "Date": "2026-03-14",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 1,
+    "Date": "2026-03-28",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 2,
+    "Date": "2026-03-28",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 3,
+    "Date": "2026-03-28",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 4,
+    "Date": "2026-03-28",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 5,
+    "Date": "2026-03-28",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 6,
+    "Date": "2026-03-28",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 7,
+    "Date": "2026-03-28",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 11,
+    "GameInRound": 8,
+    "Date": "2026-03-28",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 1,
+    "Date": "2026-04-11",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 2,
+    "Date": "2026-04-11",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 3,
+    "Date": "2026-04-11",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 4,
+    "Date": "2026-04-11",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 5,
+    "Date": "2026-04-11",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 6,
+    "Date": "2026-04-11",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 7,
+    "Date": "2026-04-11",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "הפועל לב השרון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 12,
+    "GameInRound": 8,
+    "Date": "2026-04-11",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 1,
+    "Date": "2026-04-25",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 2,
+    "Date": "2026-04-25",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 3,
+    "Date": "2026-04-25",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 4,
+    "Date": "2026-04-25",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 5,
+    "Date": "2026-04-25",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 6,
+    "Date": "2026-04-25",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 7,
+    "Date": "2026-04-25",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 13,
+    "GameInRound": 8,
+    "Date": "2026-04-25",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 1,
+    "Date": "2026-05-09",
+    "HomeTeam": "הפועל חדרה",
+    "AwayTeam": "מ.כפר סבא",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 2,
+    "Date": "2026-05-09",
+    "HomeTeam": "מכבי ברקאי",
+    "AwayTeam": "הפ' אורנית עירוני",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 3,
+    "Date": "2026-05-09",
+    "HomeTeam": "הפועל הרצליה ע. מערב",
+    "AwayTeam": "הפועל פרדסייה נועם",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 4,
+    "Date": "2026-05-09",
+    "HomeTeam": "מ.ס. קדימה צורן",
+    "AwayTeam": "מ.ס. איחוד דרום השרון מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 5,
+    "Date": "2026-05-09",
+    "HomeTeam": "מכבי נתניה 2",
+    "AwayTeam": "הפ' ניר רמת השרון צפון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 6,
+    "Date": "2026-05-09",
+    "HomeTeam": "מכבי צורן",
+    "AwayTeam": "עירוני הרצליה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 7,
+    "Date": "2026-05-09",
+    "HomeTeam": "מכבי אורנית",
+    "AwayTeam": "עירוני ראש העין",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 14,
+    "GameInRound": 8,
+    "Date": "2026-05-09",
+    "HomeTeam": "הפועל עליה כפ״ס",
+    "AwayTeam": "הפועל לב השרון",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 1,
+    "Date": "2026-05-23",
+    "HomeTeam": "הפועל לב השרון",
+    "AwayTeam": "הפועל חדרה",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 2,
+    "Date": "2026-05-23",
+    "HomeTeam": "עירוני ראש העין",
+    "AwayTeam": "הפועל עליה כפ״ס",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 3,
+    "Date": "2026-05-23",
+    "HomeTeam": "עירוני הרצליה",
+    "AwayTeam": "מכבי אורנית",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 4,
+    "Date": "2026-05-23",
+    "HomeTeam": "הפ' ניר רמת השרון צפון",
+    "AwayTeam": "מכבי צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 5,
+    "Date": "2026-05-23",
+    "HomeTeam": "מ.ס. איחוד דרום השרון מערב",
+    "AwayTeam": "מכבי נתניה 2",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 6,
+    "Date": "2026-05-23",
+    "HomeTeam": "הפועל פרדסייה נועם",
+    "AwayTeam": "מ.ס. קדימה צורן",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 7,
+    "Date": "2026-05-23",
+    "HomeTeam": "הפ' אורנית עירוני",
+    "AwayTeam": "הפועל הרצליה ע. מערב",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  },
+  {
+    "Round": 15,
+    "GameInRound": 8,
+    "Date": "2026-05-23",
+    "HomeTeam": "מ.כפר סבא",
+    "AwayTeam": "מכבי ברקאי",
+    "HomeGoals": "",
+    "AwayGoals": ""
+  }
+]
