@@ -1,12 +1,16 @@
-
 name: Build & Deploy League Site
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'games.json'
+      - 'teams.json'
+      - 'build_site.py'
+      - '.github/workflows/**'
   schedule:
-    - cron: "0 4 * * *"
-  workflow_dispatch:
+    - cron: "0 4 * * *" # בנייה אוטומטית כל יום ב-04:00 UTC
+  workflow_dispatch: # מאפשר להריץ ידנית מה-GitHub Actions
 
 permissions:
   contents: read
@@ -18,16 +22,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pandas numpy
+
       - name: Build site
         run: |
           python build_site.py games.json dist teams.json
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
