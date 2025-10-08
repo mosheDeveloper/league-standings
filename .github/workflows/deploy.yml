@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt
       - name: Build site
         run: |
-          python build_site.py games.csv dist
+          python build_site.py games.json dist teams.json
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
