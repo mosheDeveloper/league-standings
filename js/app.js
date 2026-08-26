@@ -191,7 +191,7 @@ function renderResult() {
   if (!r) return;
   const a = r.analysis;
   $("result-speed").textContent = Number(r.maxKmh).toFixed(1);
-  $("result-place").textContent = `${r.comparison.place} / ${r.comparison.total}`;
+  $("result-place").textContent = `\u202A${r.comparison.place} / ${r.comparison.total}\u202C`;
   const badge = $("result-badge");
   badge.className = "badge " + (a.valid ? "ok" : "bad");
   badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר — חשד לרכב / רמאות";
