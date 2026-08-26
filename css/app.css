@@ -331,12 +331,14 @@ h1, .page-title {
 .social-login.fb { background: #1877f2; }
 .social-login.ig { background: #c13584; }
 .social-login.guest { background: rgba(255,255,255,.1); color: var(--ink); margin-top: 10px; }
-.friends-gate {
-  display: grid;
+.ladder li.friends-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: 12px;
-  padding: 18px 8px 8px;
+  padding: 22px 16px;
   text-align: center;
-  list-style: none;
 }
 .friends-gate p {
   margin: 0;
