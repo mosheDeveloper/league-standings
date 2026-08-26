@@ -87,3 +87,18 @@ test("cadence detector finds a 3Hz bounce", async () => {
   const rate = peakRateHz(hp, 1 / hz, 0.2);
   assert.ok(rate > 2.4 && rate < 3.6);
 });
+
+test("share caption invites others to use the app", async () => {
+  const { buildSharePayload, INVITE } = await import("../js/share.js");
+  const table = {
+    name: "כוכבי כדורגל",
+    athletes: [
+      { name: "קיליאן מבאפה", maxSpeedKmh: 38 },
+      { name: "ליונל מסי", maxSpeedKmh: 32.5 },
+    ],
+  };
+  const comparison = rankAgainstTable(33.2, table);
+  const payload = buildSharePayload(33.2, comparison, table.name);
+  assert.match(payload.line, /אתה יותר מהיר מ-ליונל מסי/);
+  assert.match(payload.text, new RegExp(INVITE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});

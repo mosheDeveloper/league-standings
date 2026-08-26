@@ -1,9 +1,9 @@
 import { analyzeRun, buildProfile } from "./anticheat.js";
-import { rankAgainstTable, shareMessage } from "./compare.js";
+import { rankAgainstTable } from "./compare.js";
 import { playDemo } from "./demo.js";
 import { Tracker } from "./tracker.js";
 import { Store } from "./store.js";
-import { shareNative, whatsappUrl, twitterUrl, copyText, drawShareCard } from "./share.js";
+import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -57,6 +57,10 @@ async function ensureTable(id) {
   return state.tables[id];
 }
 
+function sportMark(sport) {
+  return { football: "⚽", athletics: "🏃", basketball: "🏀" }[sport] || "🏅";
+}
+
 function fillSelects() {
   const opts = state.catalog.tables
     .map((t) => `<option value="${t.id}">${t.name || t.title}</option>`)
@@ -65,11 +69,32 @@ function fillSelects() {
   $("editor-select").innerHTML = opts;
   $("table-select").value = state.selectedId;
   $("editor-select").value = state.selectedId;
+  $("league-chips").innerHTML = state.catalog.tables
+    .map(
+      (t) =>
+        `<button type="button" class="league-chip ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">${sportMark(t.sport)} ${t.name || t.title}</button>`
+    )
+    .join("");
+}
+
+function renderLeagues() {
+  const host = $("league-cards");
+  if (!host) return;
+  host.innerHTML = state.catalog.tables
+    .map((t) => {
+      const table = state.tables[t.id];
+      const n = table?.athletes?.length ?? "—";
+      return `<button type="button" class="league-card ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">
+        <strong>${sportMark(t.sport)} ${t.name || t.title}</strong>
+        <small>${t.blurb || ""} · ${n} ספורטאים</small>
+      </button>`;
+    })
+    .join("");
 }
 
 function setMode(mode) {
   state.mode = mode;
-  document.querySelectorAll(".seg button").forEach((b) =>
+  document.querySelectorAll(".modes button").forEach((b) =>
     b.classList.toggle("on", b.dataset.mode === mode)
   );
 }
@@ -141,7 +166,8 @@ function stopRun() {
   const analysis = analyzeRun({ ...session, profile });
   const table = state.tables[state.selectedId];
   const comparison = rankAgainstTable(analysis.maxSpeedKmh, table);
-  const share = shareMessage(analysis.maxSpeedKmh, comparison, tableTitle(table));
+  const payload = buildSharePayload(analysis.maxSpeedKmh, comparison, tableTitle(table));
+  const share = payload.line;
   const result = {
     at: new Date().toISOString(),
     mode: state.mode,
@@ -151,6 +177,7 @@ function stopRun() {
     analysis,
     comparison,
     share,
+    payload,
   };
   Store.addRun(result);
   state.lastResult = { ...result, table };
@@ -170,9 +197,7 @@ function renderResult() {
   badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר — חשד לרכב / רמאות";
   $("result-msg").textContent = a.messageHe;
   $("share-line").textContent = a.valid ? r.share : "לא ניתן לשתף שיא לא מאושר כהישג.";
-  document.querySelectorAll("#btn-share, #btn-wa, #btn-x").forEach((el) => {
-    el.hidden = !a.valid;
-  });
+  $("share-block").hidden = !a.valid;
   $("cadence-out").textContent = `${a.cadenceHz ?? "—"} הרץ · bounce ${a.bounceScore ?? "—"}`;
 
   const athletes = r.comparison.athletes || [];
@@ -185,7 +210,7 @@ function renderResult() {
   $("table-disclaimer").textContent = r.table?.disclaimer || "";
 
   const canvas = $("share-canvas");
-  drawShareCard(canvas, {
+  drawStoryCard(canvas, {
     maxKmh: r.maxKmh,
     playerName: r.comparison.fasterThan?.name || r.comparison.nextTarget?.name,
     tableTitle: r.tableTitle,
@@ -193,6 +218,13 @@ function renderResult() {
     shareLine: r.share,
   });
   $("share-preview").src = canvas.toDataURL("image/png");
+}
+
+function openShareSheet() {
+  $("share-sheet").hidden = false;
+}
+function closeShareSheet() {
+  $("share-sheet").hidden = true;
 }
 
 function renderHistory() {
@@ -237,25 +269,24 @@ function saveEditor() {
   toast("הטבלה נשמרה במכשיר");
 }
 
-async function shareResult(kind) {
+async function shareResult(platform) {
   const r = state.lastResult;
-  if (!r) return;
-  const payload = { text: r.share, url: location.href.split("#")[0] };
-  if (kind === "native") {
-    try {
-      const ok = await shareNative(payload);
-      if (!ok) await copyText(payload.text);
-      toast(ok ? "שותף" : "הועתק ללוח");
-    } catch (e) {
-      if (e?.name === "AbortError") return;
-      await copyText(payload.text);
-      toast("הועתק ללוח");
-    }
-  } else if (kind === "wa") window.open(whatsappUrl(payload), "_blank");
-  else if (kind === "x") window.open(twitterUrl(payload), "_blank");
-  else if (kind === "copy") {
-    await copyText(payload.text);
-    toast("הועתק");
+  if (!r?.analysis?.valid) return;
+  const payload = {
+    ...(r.payload || buildSharePayload(r.maxKmh, r.comparison, r.tableTitle)),
+    canvas: $("share-canvas"),
+  };
+  try {
+    const how = await shareToPlatform(platform, payload);
+    closeShareSheet();
+    if (how === "aborted") return;
+    if (how === "copied") toast("הטקסט הועתק");
+    else if (how === "saved" || how === "download-copy")
+      toast("הכרטיס נשמר — הדביקו בסטורי עם הטקסט שהועתק");
+    else toast("נפתח לשיתוף");
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+    toast("לא ניתן לשתף מכאן — נסו שמירת תמונה");
   }
 }
 
@@ -282,18 +313,31 @@ async function init() {
     state.selectedId = state.catalog.tables[0].id;
   }
   fillSelects();
-  await ensureTable(state.selectedId);
+  await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
+  renderLeagues();
   renderProfile();
   renderHistory();
   await openEditor();
   setMode(state.mode);
 
-  $("table-select").addEventListener("change", async (e) => {
-    state.selectedId = e.target.value;
-    Store.setTableId(state.selectedId);
-    await ensureTable(state.selectedId);
+  async function pickTable(id) {
+    state.selectedId = id;
+    Store.setTableId(id);
+    await ensureTable(id);
+    fillSelects();
+    renderLeagues();
+  }
+
+  $("league-chips").addEventListener("click", (e) => {
+    const id = e.target.closest("[data-id]")?.dataset.id;
+    if (id) pickTable(id);
   });
-  document.querySelectorAll(".seg button").forEach((b) =>
+  $("league-cards").addEventListener("click", (e) => {
+    const id = e.target.closest("[data-id]")?.dataset.id;
+    if (id) pickTable(id);
+  });
+  $("table-select").addEventListener("change", (e) => pickTable(e.target.value));
+  document.querySelectorAll(".modes button").forEach((b) =>
     b.addEventListener("click", () => setMode(b.dataset.mode))
   );
   $("btn-start").addEventListener("click", startRun);
@@ -304,7 +348,10 @@ async function init() {
       const v = b.dataset.view;
       if (v === "history") renderHistory();
       if (v === "home") renderProfile();
-      if (v === "tables") openEditor();
+      if (v === "tables") {
+        renderLeagues();
+        openEditor();
+      }
       showView(v);
     })
   );
@@ -330,17 +377,20 @@ async function init() {
       const parsed = JSON.parse(await file.text());
       for (const [id, table] of Object.entries(parsed)) Store.setOverride(id, table);
       state.tables = {};
-      await ensureTable(state.selectedId);
+      await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
       await openEditor();
+      renderLeagues();
       toast("ייבוא הצליח");
     } catch {
       toast("ייבוא נכשל");
     }
   });
-  $("btn-share").addEventListener("click", () => shareResult("native"));
-  $("btn-wa").addEventListener("click", () => shareResult("wa"));
-  $("btn-x").addEventListener("click", () => shareResult("x"));
-  $("btn-copy").addEventListener("click", () => shareResult("copy"));
+  $("btn-open-share").addEventListener("click", openShareSheet);
+  $("share-sheet").addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-sheet]")) closeShareSheet();
+    const p = e.target.closest("[data-platform]")?.dataset.platform;
+    if (p) shareResult(p);
+  });
   $("btn-clear-history").addEventListener("click", () => {
     localStorage.removeItem("sprint.max.runs");
     renderHistory();

@@ -3,137 +3,154 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#05060a" />
+  <meta name="theme-color" content="#06140c" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="description" content="מדידת מהירות ריצה בטלפון, השוואה לספורטאים, ומניעת רמאות בנסיעה ברכב" />
-  <title>Sprint Max — שיא ריצה</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="מדדו מהירות ריצה מול ספורטאים. שתפו את השיא." />
+  <title>Sprint Max</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./css/app.css" />
 </head>
 <body>
-  <div class="app" id="shell">
-    <div class="aurora" aria-hidden="true"></div>
-
-    <header class="app-head">
-      <div class="brand">
-        <div class="logo">SM</div>
-        <div>
-          <h1>Sprint Max</h1>
-          <p class="sub">הטלפון בכיס. רצים. רואים מול מי אתם על הסולם.</p>
-        </div>
-      </div>
-      <button class="btn ghost" id="btn-install" hidden>התקנה</button>
-    </header>
+  <div class="phone" id="shell">
+    <div class="glow" aria-hidden="true"></div>
 
     <section class="view active" data-view="home">
-      <p class="kicker">מוכנים לשבור שיא?</p>
-      <div class="card glow">
-        <label class="field" for="table-select">טבלת השוואה</label>
-        <select id="table-select"></select>
-        <p class="muted tight">במחשב בחרו סימולציה. בטלפון — GPS אמיתי.</p>
-        <div class="seg">
-          <button type="button" data-mode="gps">GPS אמיתי</button>
-          <button type="button" data-mode="sim-run" class="on">סימולציית ריצה</button>
-          <button type="button" data-mode="sim-car">סימולציית רכב</button>
+      <header class="top">
+        <div>
+          <p class="hello" id="greet">היי 👋</p>
+          <h1>מוכנים לשיא?</h1>
         </div>
-        <button class="btn primary wide pulse-btn" id="btn-start">התחל מדידה</button>
-        <p class="install-hint" id="profile-box"></p>
+        <button class="icon-btn" id="btn-install" hidden aria-label="התקנה">↓</button>
+      </header>
+
+      <p class="label">עם מי משווים היום</p>
+      <div class="chips" id="league-chips"></div>
+      <select id="table-select" class="sr-only" aria-hidden="true"></select>
+
+      <div class="go">
+        <button type="button" class="go-btn" id="btn-start">
+          <span>התחל</span>
+        </button>
+        <p class="go-hint">לחצו ורוצו. הטלפון בכיס.</p>
       </div>
-      <div class="card">
-        <p class="disclaimer">
-          המדידה מחפשת <b>tilt</b> ומקצב צעדים בטלפון. נסיעה ברכב (מהירות חלקה, בלי קפיצה) נחסמת.
-          אחרי שלוש ריצות מאושרות נלמד את הפרופיל האישי שלכם.
-        </p>
+
+      <div class="modes">
+        <button type="button" data-mode="gps">GPS</button>
+        <button type="button" data-mode="sim-run" class="on">ריצה</button>
+        <button type="button" data-mode="sim-car">רכב</button>
       </div>
+      <p class="hint" id="profile-box"></p>
     </section>
 
-    <section class="view" data-view="run">
-      <p class="kicker" id="live-status">מדידה פעילה</p>
-      <div class="speed-hero">
+    <section class="view view-run" data-view="run">
+      <p class="live-kicker" id="live-status">מדידה</p>
+      <div class="gauge">
         <div class="speed-ring" id="speed-ring" style="--p:0"></div>
         <div class="speed-core">
           <div class="num" id="live-speed">0.0</div>
-          <div class="unit">קמ״ש עכשיו</div>
+          <div class="unit">קמ״ש</div>
         </div>
       </div>
-      <div class="metrics">
-        <div class="metric"><span>שיא במדידה</span><b id="max-speed">0.0</b></div>
-        <div class="metric"><span>זמן</span><b id="live-time">00:00</b></div>
-        <div class="metric"><span>קצב צעדים</span><b id="cadence">—</b></div>
+      <div class="stats">
+        <div><em>שיא</em><b id="max-speed">0.0</b></div>
+        <div><em>זמן</em><b id="live-time">00:00</b></div>
+        <div><em>צעדים</em><b id="cadence">—</b></div>
       </div>
-      <button class="btn danger wide" id="btn-stop" disabled>סיום ריצה</button>
+      <button class="stop" id="btn-stop" disabled>עצירה</button>
     </section>
 
     <section class="view" data-view="result">
-      <div class="card speed-hero result-hero">
-        <span class="badge ok" id="result-badge">ריצה מאושרת</span>
+      <div class="result-hero">
+        <span class="pill ok" id="result-badge">אושר</span>
         <div class="num" id="result-speed">0.0</div>
-        <div class="unit">קמ״ש מקסימום</div>
-        <p id="result-msg" class="muted"></p>
-        <div class="metrics">
-          <div class="metric"><span>מיקום בטבלה</span><b id="result-place">—</b></div>
-          <div class="metric"><span>חיישנים</span><b id="cadence-out">—</b></div>
+        <p class="unit">קמ״ש מקסימום</p>
+        <p class="result-copy" id="result-msg"></p>
+        <div class="stats two">
+          <div><em>מקום</em><b id="result-place">—</b></div>
+          <div><em>חיישנים</em><b id="cadence-out">—</b></div>
         </div>
       </div>
-      <div class="card share-card">
-        <p id="share-line"></p>
-        <div class="row">
-          <button class="btn primary wide" id="btn-share">שיתוף</button>
-          <button class="btn" id="btn-wa">WhatsApp</button>
-          <button class="btn" id="btn-x">X</button>
-          <button class="btn" id="btn-copy">העתקה</button>
-        </div>
-        <canvas id="share-canvas" width="720" height="420" hidden></canvas>
-        <img class="share-preview" id="share-preview" alt="כרטיס שיתוף" />
+
+      <div class="share-block" id="share-block">
+        <p class="share-line" id="share-line"></p>
+        <button class="cta" id="btn-open-share" type="button">שתפו את השיא</button>
+        <img class="story" id="share-preview" alt="כרטיס שיתוף" />
+        <canvas id="share-canvas" hidden></canvas>
       </div>
-      <div class="card">
-        <h2 class="h2">הסולם מול הטבלה</h2>
-        <ul class="rank-list" id="rank-list"></ul>
-        <p class="disclaimer" id="table-disclaimer"></p>
-        <button class="btn wide" id="btn-new-run">ריצה חדשה</button>
-      </div>
+
+      <h2 class="section-title">הסולם</h2>
+      <ul class="ladder" id="rank-list"></ul>
+      <p class="hint" id="table-disclaimer"></p>
+      <button class="ghost-wide" id="btn-new-run" type="button">ריצה חדשה</button>
     </section>
 
     <section class="view" data-view="history">
-      <h2 class="h2">הריצות שלכם</h2>
-      <div class="card">
-        <div class="row between">
-          <span class="muted">נשמר במכשיר</span>
-          <button class="btn ghost" id="btn-clear-history">ניקוי</button>
-        </div>
-        <ul class="rank-list" id="history-list"></ul>
-      </div>
+      <h1 class="page-title">הריצות שלי</h1>
+      <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
+      <ul class="ladder" id="history-list"></ul>
     </section>
 
     <section class="view" data-view="tables">
-      <h2 class="h2">עריכת JSON</h2>
-      <div class="card">
-        <label class="field" for="editor-select">טבלה</label>
+      <h1 class="page-title">ליגות</h1>
+      <p class="hint">בחרו טבלה להשוואה. אפשר גם לערוך את ה־JSON.</p>
+      <div id="league-cards"></div>
+      <details class="advanced">
+        <summary>עריכת JSON</summary>
         <select id="editor-select"></select>
-        <p class="disclaimer">השינויים נשמרים במכשיר ומכסים את הקבצים ב־<code>data/</code>. כדי לשתף עם כולם — עדכנו את הקבצים בריפו.</p>
         <textarea id="json-editor" spellcheck="false"></textarea>
-        <div class="row">
-          <button class="btn primary" id="btn-save-json">שמירה במכשיר</button>
-          <button class="btn" id="btn-reset-json">איפוס</button>
-          <button class="btn" id="btn-export">ייצוא</button>
+        <div class="btn-row">
+          <button class="cta compact" id="btn-save-json" type="button">שמירה</button>
+          <button class="ghost-wide compact" id="btn-reset-json" type="button">איפוס</button>
+          <button class="ghost-wide compact" id="btn-export" type="button">ייצוא</button>
         </div>
-        <label class="field">ייבוא overlay</label>
-        <input id="import-file" type="file" accept="application/json" />
-      </div>
+        <label class="file-lab">ייבוא <input id="import-file" type="file" accept="application/json" /></label>
+      </details>
     </section>
   </div>
 
-  <nav class="tabbar">
-    <button type="button" class="active" data-view="home">ריצה</button>
-    <button type="button" data-view="history">היסטוריה</button>
-    <button type="button" data-view="tables">טבלאות</button>
-    <button type="button" data-view="result">תוצאה</button>
+  <nav class="tabbar" aria-label="ראשי">
+    <button type="button" class="active" data-view="home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z" fill="currentColor"/></svg>
+      ריצה
+    </button>
+    <button type="button" data-view="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v7l4 2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      היסטוריה
+    </button>
+    <button type="button" data-view="tables">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5zM5 10h14v4H5zM5 16h14v4H5z" fill="currentColor"/></svg>
+      ליגות
+    </button>
   </nav>
+
+  <div class="sheet" id="share-sheet" hidden>
+    <div class="sheet-bg" data-close-sheet></div>
+    <div class="sheet-card" role="dialog" aria-label="שיתוף">
+      <div class="sheet-handle"></div>
+      <h2>איפה לשתף?</h2>
+      <p class="hint">נפתח את הרשת שבחרתם עם הכרטיס והטקסט — כולל הזמנה לחברים למדוד גם.</p>
+      <div class="platforms">
+        <button type="button" data-platform="whatsapp"><i class="wa">W</i>WhatsApp</button>
+        <button type="button" data-platform="instagram"><i class="ig">IG</i>Instagram</button>
+        <button type="button" data-platform="facebook"><i class="fb">f</i>Facebook</button>
+        <button type="button" data-platform="x"><i class="x">𝕏</i>X</button>
+        <button type="button" data-platform="tiktok"><i class="tt">♪</i>TikTok</button>
+        <button type="button" data-platform="telegram"><i class="tg">✈</i>Telegram</button>
+        <button type="button" data-platform="system"><i class="sys">↑</i>עוד אפליקציות</button>
+        <button type="button" data-platform="save"><i class="sv">↓</i>שמירת תמונה</button>
+        <button type="button" data-platform="copy"><i class="cp">⧉</i>העתקת טקסט</button>
+      </div>
+      <button class="ghost-wide" data-close-sheet type="button">ביטול</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
   <script type="module" src="./js/app.js"></script>
 </body>
