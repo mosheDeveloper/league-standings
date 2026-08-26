@@ -90,7 +90,9 @@ function renderRecords() {
   if (key === "friends" && !canSeeFriends(state.session)) {
     $("records-place").textContent = "צריך להתחבר כדי להשוות עם חברים";
     const guestNote = state.session?.guest
-      ? `<p class="friends-gate-sub">כרגע אתם כאורח${state.session.name ? ` (${state.session.name})` : ""}. אורח לא כולל רשימת חברים.</p>`
+      ? `<p class="friends-gate-sub">כרגע אתם כאורח${
+          state.session.name && state.session.name !== "אורח" ? ` (${state.session.name})` : ""
+        }. אורח לא כולל רשימת חברים.</p>`
       : `<p class="friends-gate-sub">בלי חיבור לפייסבוק או אינסטגרם אי אפשר להשוות שיאים מול חברים.</p>`;
     $("records-list").innerHTML = `
       <li class="friends-gate">
