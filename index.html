@@ -27,7 +27,10 @@
           <p class="hello" id="greet">היי 👋</p>
           <h1>מוכנים לשיא?</h1>
         </div>
-        <button class="icon-btn" id="btn-install" hidden aria-label="התקנה">↓</button>
+        <div class="top-actions">
+          <button class="login-btn" id="btn-account" type="button">כניסה</button>
+          <button class="icon-btn" id="btn-install" hidden aria-label="התקנה">↓</button>
+        </div>
       </header>
 
       <p class="label">עם מי משווים היום</p>
@@ -91,6 +94,18 @@
       <button class="ghost-wide" id="btn-new-run" type="button">ריצה חדשה</button>
     </section>
 
+    <section class="view" data-view="records">
+      <h1 class="page-title">שיאים</h1>
+      <p class="hint" id="records-place">התחברו כדי לראות איפה אתם מול המדינה, העולם והחברים.</p>
+      <div class="seg-tabs" id="records-tabs">
+        <button type="button" data-board="local" class="on">מדינה</button>
+        <button type="button" data-board="global">עולם</button>
+        <button type="button" data-board="friends">חברים</button>
+      </div>
+      <p class="hint" id="records-sub"></p>
+      <ul class="ladder" id="records-list"></ul>
+    </section>
+
     <section class="view" data-view="history">
       <h1 class="page-title">הריצות שלי</h1>
       <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
@@ -119,6 +134,10 @@
     <button type="button" class="active" data-view="home">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z" fill="currentColor"/></svg>
       ריצה
+    </button>
+    <button type="button" data-view="records">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19V9h3v10H6zm5 0V5h3v14h-3zm5 0v-6h3v6h-3z" fill="currentColor"/></svg>
+      שיאים
     </button>
     <button type="button" data-view="history">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v7l4 2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -151,7 +170,21 @@
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="sheet" id="login-sheet" hidden>
+    <div class="sheet-bg" data-close-login></div>
+    <div class="sheet-card" role="dialog" aria-label="התחברות">
+      <div class="sheet-handle"></div>
+      <h2 id="login-title">התחברות</h2>
+      <p class="hint">פייסבוק ואינסטגרם יבקשו לראות את השם שלכם ואת החברים שגם משתמשים ב־Sprint Max — כדי לבנות לוח שיאי חברים.</p>
+      <button class="social-login fb" id="btn-login-fb" type="button">התחברות עם Facebook</button>
+      <button class="social-login ig" id="btn-login-ig" type="button">התחברות עם Instagram</button>
+      <label class="field-lab" for="login-name">שם לתצוגה (אם Meta עדיין לא מחובר)</label>
+      <input id="login-name" maxlength="24" placeholder="למשל: משה" />
+      <button class="ghost-wide" id="btn-login-local" type="button">אישור הרשאות והמשך</button>
+      <button class="text-btn" id="btn-logout" type="button" hidden>התנתקות</button>
+      <button class="ghost-wide" data-close-login type="button">סגירה</button>
+    </div>
+  </div>
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>

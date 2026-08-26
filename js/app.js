@@ -3,6 +3,15 @@ import { rankAgainstTable } from "./compare.js";
 import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
 import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
+import { buildBoards, bestVerifiedKmh } from "./records.js";
+import {
+  getSession,
+  saveSession,
+  clearSession,
+  loadAuthConfig,
+  loginWithMeta,
+  localConsentSession,
+} from "./auth.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,6 +23,10 @@ const state = {
   tracker: null,
   gpsOk: false,
   lastResult: null,
+  recordsCatalog: null,
+  session: null,
+  recordsTab: "local",
+  authConfig: null,
 };
 
 function toast(msg) {
@@ -33,6 +46,106 @@ function showView(name) {
 
 function tableTitle(t) {
   return t?.title || t?.name || "";
+}
+
+function greet() {
+  const name = state.session?.name || Store.getName();
+  const el = $("greet");
+  if (el) el.textContent = name ? `היי ${name} 👋` : "היי 👋";
+}
+
+function renderAccountBtn() {
+  const btn = $("btn-account");
+  if (!btn) return;
+  btn.textContent = state.session?.name ? state.session.name : "כניסה";
+  const logout = $("btn-logout");
+  if (logout) logout.hidden = !state.session;
+  const title = $("login-title");
+  if (title) title.textContent = state.session ? "החשבון שלי" : "התחברות";
+  if (state.session?.name && $("login-name")) $("login-name").value = state.session.name;
+}
+
+function myBest() {
+  return bestVerifiedKmh(Store.verifiedRuns());
+}
+
+function renderRecords() {
+  if (!state.recordsCatalog) return;
+  const boards = buildBoards({
+    catalog: state.recordsCatalog,
+    session: state.session,
+    myKmh: myBest(),
+  });
+  const key = state.recordsTab;
+  const board = boards[key];
+  const titles = {
+    local: `שיאי ${boards.countryLabel}`,
+    global: "שיאים עולמיים",
+    friends: "שיאי חברים",
+  };
+  $("records-sub").textContent = titles[key] || "";
+  if (!state.session && key === "friends") {
+    $("records-place").textContent = "התחברו בפייסבוק או באינסטגרם כדי לראות שיאי חברים.";
+    $("records-list").innerHTML = `<li>אין עדיין רשימת חברים.</li>`;
+    return;
+  }
+  if (board.place) {
+    const where =
+      key === "local" ? `ב${boards.countryLabel}` : key === "friends" ? "בין החברים" : "בעולם";
+    $("records-place").textContent = `את/ה במקום ${board.place} מתוך ${board.total} ${where}. שיא: ${myBest().toFixed(1)} קמ״ש`;
+  } else if (state.session) {
+    $("records-place").textContent = "עדיין אין שיא מאושר — סיימו ריצה תקינה כדי להיכנס ללוח.";
+  } else {
+    $("records-place").textContent = "התחברו כדי לשמור את השיא שלכם מול המדינה והעולם.";
+  }
+  if (!board.sorted.length) {
+    $("records-list").innerHTML = `<li>אין עדיין שיאים בלוח הזה.</li>`;
+    return;
+  }
+  $("records-list").innerHTML = board.sorted
+    .map((u, i) => {
+      const you = u.id === state.session?.id;
+      return `<li class="${you ? "you" : ""}"><span>${i + 1}. ${u.name}${you ? " · את/ה" : ""}</span><b>${Number(u.maxSpeedKmh).toFixed(1)}</b></li>`;
+    })
+    .join("");
+}
+
+function openLogin() {
+  renderAccountBtn();
+  $("login-sheet").hidden = false;
+}
+function closeLogin() {
+  $("login-sheet").hidden = true;
+}
+
+async function finishLogin(session) {
+  state.session = session;
+  saveSession(session);
+  Store.setName(session.name);
+  greet();
+  renderAccountBtn();
+  renderRecords();
+  closeLogin();
+  toast(session.friendsFromApi ? "מחוברים · נטענו חברים" : "מחוברים");
+}
+
+async function onMetaLogin(provider) {
+  try {
+    const session = await loginWithMeta(provider, state.authConfig);
+    await finishLogin(session);
+  } catch (err) {
+    if (err?.message === "cancelled") return;
+    const name = $("login-name").value || Store.getName();
+    const session = localConsentSession(provider, name);
+    session.friends = (state.recordsCatalog?.sampleFriends || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      country: f.country,
+      maxSpeedKmh: f.maxSpeedKmh,
+    }));
+    await finishLogin(session);
+    toast("Meta לא הוגדר עדיין — התחברות מקומית. הזינו App ID ב-data/auth.json לחיבור אמיתי.");
+  }
 }
 
 async function loadCatalog() {
@@ -209,6 +322,7 @@ function stopRun() {
   renderResult();
   showView("result");
   renderProfile();
+  renderRecords();
   refreshGpsLock();
 }
 
@@ -344,6 +458,16 @@ async function init() {
   renderProfile();
   renderHistory();
   await openEditor();
+  state.authConfig = await loadAuthConfig();
+  try {
+    state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();
+  } catch {
+    state.recordsCatalog = { users: [], sampleFriends: [], countries: {}, defaultCountry: "IL" };
+  }
+  state.session = getSession();
+  greet();
+  renderAccountBtn();
+  renderRecords();
   refreshGpsLock();
 
   async function pickTable(id) {
@@ -371,7 +495,11 @@ async function init() {
     b.addEventListener("click", () => {
       const v = b.dataset.view;
       if (v === "history") renderHistory();
-      if (v === "home") renderProfile();
+      if (v === "home") {
+        renderProfile();
+        greet();
+      }
+      if (v === "records") renderRecords();
       if (v === "tables") {
         renderLeagues();
         openEditor();
@@ -414,6 +542,39 @@ async function init() {
     if (e.target.closest("[data-close-sheet]")) closeShareSheet();
     const p = e.target.closest("[data-platform]")?.dataset.platform;
     if (p) shareResult(p);
+  });
+  $("btn-account").addEventListener("click", openLogin);
+  $("login-sheet").addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-login]")) closeLogin();
+  });
+  $("btn-login-fb").addEventListener("click", () => onMetaLogin("facebook"));
+  $("btn-login-ig").addEventListener("click", () => onMetaLogin("instagram"));
+  $("btn-login-local").addEventListener("click", async () => {
+    const name = $("login-name").value || Store.getName();
+    const session = localConsentSession("facebook", name);
+    session.friends = (state.recordsCatalog?.sampleFriends || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      country: f.country,
+      maxSpeedKmh: f.maxSpeedKmh,
+    }));
+    await finishLogin(session);
+  });
+  $("btn-logout").addEventListener("click", () => {
+    clearSession();
+    state.session = null;
+    greet();
+    renderAccountBtn();
+    renderRecords();
+    closeLogin();
+    toast("התנתקתם");
+  });
+  $("records-tabs").addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-board]")?.dataset.board;
+    if (!tab) return;
+    state.recordsTab = tab;
+    $("records-tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.board === tab));
+    renderRecords();
   });
   $("btn-clear-history").addEventListener("click", () => {
     localStorage.removeItem("sprint.max.runs");

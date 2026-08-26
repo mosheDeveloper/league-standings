@@ -282,6 +282,65 @@ h1, .page-title {
 }
 .btn-row { display: flex; gap: 8px; margin-top: 8px; }
 
+.top-actions { display: flex; gap: 8px; align-items: center; }
+.login-btn {
+  border: 0;
+  background: rgba(255,255,255,.1);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seg-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  background: rgba(255,255,255,.05);
+  border-radius: 16px;
+  padding: 4px;
+  margin: 8px 0 12px;
+}
+.seg-tabs button {
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 10px 6px;
+  border-radius: 12px;
+}
+.seg-tabs button.on { background: #0e2216; color: var(--lime); }
+
+.social-login {
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 14px;
+  font: inherit;
+  font-weight: 800;
+  margin-top: 8px;
+  color: #fff;
+}
+.social-login.fb { background: #1877f2; }
+.social-login.ig { background: linear-gradient(90deg, #f58529, #dd2a7b, #8134af); }
+.field-lab { display: block; margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--dim); }
+#login-name {
+  width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 0;
+  border-radius: 14px;
+  padding: 12px;
+  color: var(--ink);
+  font: inherit;
+}
+
 .tabbar {
   position: fixed;
   left: 50%;
@@ -289,7 +348,7 @@ h1, .page-title {
   transform: translateX(-50%);
   width: min(430px, 100%);
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   padding: 8px 8px calc(8px + var(--safe-b));
   background: rgba(5, 12, 8, .92);
   backdrop-filter: blur(18px);

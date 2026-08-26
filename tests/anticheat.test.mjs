@@ -116,3 +116,25 @@ test("share caption invites others to use the app", async () => {
   assert.match(payload.line, /אתה יותר מהיר מ-ליונל מסי/);
   assert.match(payload.text, new RegExp(INVITE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
+
+test("records boards rank me locally, globally and among friends", async () => {
+  const { buildBoards } = await import("../js/records.js");
+  const catalog = {
+    defaultCountry: "IL",
+    countries: { IL: "ישראל" },
+    users: [
+      { id: "a", name: "A", country: "IL", maxSpeedKmh: 34 },
+      { id: "b", name: "B", country: "US", maxSpeedKmh: 36 },
+      { id: "c", name: "C", country: "IL", maxSpeedKmh: 28 },
+    ],
+    sampleFriends: [{ id: "f1", name: "F", country: "IL", maxSpeedKmh: 30 }],
+  };
+  const session = { id: "me", name: "משה", country: "IL", friends: [] };
+  const boards = buildBoards({ catalog, session, myKmh: 32 });
+  assert.equal(boards.local.place, 2);
+  assert.equal(boards.local.total, 3);
+  assert.equal(boards.global.place, 3);
+  assert.equal(boards.global.total, 4);
+  assert.equal(boards.friends.place, 1);
+  assert.ok(boards.friends.sorted.some((u) => u.me));
+});
