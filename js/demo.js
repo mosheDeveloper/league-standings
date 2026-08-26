@@ -13,7 +13,7 @@ export function sampleRunning(tSec) {
       ? 8 * tSec
       : tSec < 3.2
         ? 18 + 10 * Math.sin((tSec - 1.2) * 0.9)
-        : 26 + 3.2 * Math.sin(tSec * 1.4);
+        : 32.6 + 2.4 * Math.sin(tSec * 1.4);
   return {
     speedKmh: Math.max(0, speed),
     accMag: 9.7 + bounce + (hash(tSec) - 0.5) * 0.4,
