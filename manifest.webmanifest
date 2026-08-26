@@ -1,0 +1,20 @@
+{
+  "name": "Sprint Max",
+  "short_name": "Sprint Max",
+  "description": "מדידת מהירות ריצה בטלפון, אנטי־רמאות והשוואה לספורטאים",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

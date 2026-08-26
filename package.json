@@ -1,0 +1,9 @@
+{
+  "name": "run-speed-pwa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/anticheat.test.mjs",
+    "start": "python3 -m http.server 4173"
+  }
+}

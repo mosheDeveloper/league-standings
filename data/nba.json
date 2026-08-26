@@ -1,0 +1,19 @@
+{
+  "id": "nba",
+  "name": "כוכבי NBA",
+  "sport": "basketball",
+  "speedUnit": "km/h",
+  "disclaimer": "הערכות מהירות ריצה מקסימלית (לא מדידת לייזר רשמית). לעריכה בקובץ JSON.",
+  "athletes": [
+    { "id": "fox", "name": "די'ארון פוקס", "team": "סן אנטוניו", "maxSpeedKmh": 33.4 },
+    { "id": "morant", "name": "ג'ה מורנט", "team": "ממפיס", "maxSpeedKmh": 33.1 },
+    { "id": "ant", "name": "אנתוני אדוארדס", "team": "מינסוטה", "maxSpeedKmh": 32.8 },
+    { "id": "jaelen", "name": "ג'לן בראון", "team": "בוסטון", "maxSpeedKmh": 32.2 },
+    { "id": "tatum", "name": "ג'ייסון טייטום", "team": "בוסטון", "maxSpeedKmh": 31.6 },
+    { "id": "curry", "name": "סטף קרי", "team": "גולדן סטייט", "maxSpeedKmh": 30.8 },
+    { "id": "lebron", "name": "לברון ג'יימס", "team": "לייקרס", "maxSpeedKmh": 31.2 },
+    { "id": "giannis", "name": "יאניס אדטוקומבו", "team": "מילווקי", "maxSpeedKmh": 31.9 },
+    { "id": "sga", "name": "שיי גילג'ס-אלכסנדר", "team": "אוקלהומה", "maxSpeedKmh": 31.4 },
+    { "id": "wembanyama", "name": "ויקטור וומבאניאמה", "team": "סן אנטוניו", "maxSpeedKmh": 29.8 }
+  ]
+}

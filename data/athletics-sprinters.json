@@ -1,0 +1,17 @@
+{
+  "id": "athletics-sprinters",
+  "title": "אתלטיקה — ספרינטרים",
+  "sport": "athletics",
+  "disclaimer": "מהירויות שיא משוערות לפי ניתוחי מרוצים שפורסמו בציבור (לא מדידת GPS של הטלפון).",
+  "unit": "km/h",
+  "athletes": [
+    { "id": "bolt", "name": "יוסיין בולט", "maxSpeedKmh": 44.7, "team": "ג'מייקה", "note": "שיא מדווח ב-100 מ׳" },
+    { "id": "lyles", "name": "נואה ליילס", "maxSpeedKmh": 43.6, "team": "ארה״ב", "note": "הערכה מדווחת" },
+    { "id": "kerley", "name": "פרד קרלי", "maxSpeedKmh": 43.2, "team": "ארה״ב", "note": "הערכה מדווחת" },
+    { "id": "thompson", "name": "קישאיין תומפסון", "maxSpeedKmh": 43.4, "team": "ג'מייקה", "note": "הערכה מדווחת" },
+    { "id": "fraser", "name": "שלדון בריאנט", "maxSpeedKmh": 42.1, "team": "ארה״ב", "note": "הערכה מדווחת" },
+    { "id": "fraserpryce", "name": "שלי-אן פרייזר-פרייס", "maxSpeedKmh": 39.5, "team": "ג'מייקה", "note": "הערכה מדווחת" },
+    { "id": "thompsonherah", "name": "איליין תומפסון-הרה", "maxSpeedKmh": 40.2, "team": "ג'מייקה", "note": "הערכה מדווחת" },
+    { "id": "richardson", "name": "שעקרי ריצ'רדסון", "maxSpeedKmh": 39.8, "team": "ארה״ב", "note": "הערכה מדווחת" }
+  ]
+}

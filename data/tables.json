@@ -1,0 +1,39 @@
+{
+  "tables": [
+    {
+      "id": "football-stars",
+      "name": "כוכבי כדורגל",
+      "sport": "football",
+      "file": "data/football-stars.json",
+      "blurb": "שיאי מהירות מדווחים של שחקנים מובילים"
+    },
+    {
+      "id": "premier-league",
+      "name": "פרמייר ליג",
+      "sport": "football",
+      "file": "data/premier-league.json",
+      "blurb": "שחקני פרמייר ליג נבחרים"
+    },
+    {
+      "id": "israeli-football",
+      "name": "כדורגל ישראלי",
+      "sport": "football",
+      "file": "data/israeli-football.json",
+      "blurb": "שחקנים ישראלים נבחרים — מהירויות משוערות"
+    },
+    {
+      "id": "athletics",
+      "name": "אתלטיקה — ספרינט",
+      "sport": "athletics",
+      "file": "data/athletics.json",
+      "blurb": "שיאי מהירות של ספרינטרים עולמיים"
+    },
+    {
+      "id": "nba",
+      "name": "כוכבי NBA",
+      "sport": "basketball",
+      "file": "data/nba.json",
+      "blurb": "הערכות מהירות ריצה לכוכבי כדורסל"
+    }
+  ]
+}
