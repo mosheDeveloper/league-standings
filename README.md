@@ -35,7 +35,7 @@ python3 -m http.server 4173
 # פתיחה: http://localhost:4173
 ```
 
-במחשב בלי GPS: **סימולציית ריצה** / **סימולציית רכב**. בטלפון: החזיקו את הכפתור הגדול (HTTPS נדרש ל־GPS).
+בטלפון עם GPS דולק: כפתור ההתחלה נפתח רק אחרי נעילת מיקום. בלי קליטה תופיע התרעה לשפר מיקום. נסיעה ברכב נחסמת אם הטלפון כמעט לא זז.
 
 ## Tests
 ```bash
@@ -46,4 +46,4 @@ npm test
 Push to `main` publishes the PWA to GitHub Pages via `.github/workflows/deploy.yml` (runs unit tests first). Enable **Settings → Pages → GitHub Actions**.
 
 ## English
-Mobile-first PWA: GPS + motion running speed, max km/h, anti-cheat (cadence/tilt, GPS spikes, ~45 km/h cap, learned profile), editable JSON athlete tables, Hebrew RTL share line, installable (manifest + service worker), demo mode for desktop.
+Mobile-first PWA: GPS + motion running speed, max km/h, GPS-lock required to start, anti-cheat (still phone / no tilt = car), editable JSON athlete tables, Hebrew RTL share.

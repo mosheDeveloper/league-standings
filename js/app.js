@@ -1,7 +1,6 @@
 import { analyzeRun, buildProfile } from "./anticheat.js";
 import { rankAgainstTable } from "./compare.js";
-import { playDemo } from "./demo.js";
-import { Tracker } from "./tracker.js";
+import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
 import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
 
@@ -11,9 +10,9 @@ const state = {
   catalog: null,
   tables: {},
   selectedId: "football-stars",
-  mode: "sim-run",
+  mode: "run",
   tracker: null,
-  demoLoop: false,
+  gpsOk: false,
   lastResult: null,
 };
 
@@ -92,11 +91,36 @@ function renderLeagues() {
     .join("");
 }
 
-function setMode(mode) {
-  state.mode = mode;
-  document.querySelectorAll(".modes button").forEach((b) =>
-    b.classList.toggle("on", b.dataset.mode === mode)
-  );
+function setGpsUi({ state: gpsState, text, canStart }) {
+  const box = $("gps-status");
+  if (box) box.dataset.state = gpsState;
+  $("gps-status-text").textContent = text;
+  $("btn-start").disabled = !canStart;
+  state.gpsOk = !!canStart;
+}
+
+async function refreshGpsLock() {
+  setGpsUi({
+    state: "checking",
+    text: "בודקים קליטת GPS…",
+    canStart: false,
+  });
+  const probe = await probeGps();
+  if (probe.ok) {
+    const acc = probe.accuracy != null ? ` · דיוק ${Math.round(probe.accuracy)} מ׳` : "";
+    setGpsUi({
+      state: "ok",
+      text: `מיקום נעול${acc}. אפשר להתחיל ריצה.`,
+      canStart: true,
+    });
+  } else {
+    setGpsUi({
+      state: "bad",
+      text: probe.message,
+      canStart: false,
+    });
+  }
+  return probe;
 }
 
 function renderProfile() {
@@ -112,15 +136,25 @@ function renderProfile() {
 function onLive(update) {
   $("live-speed").textContent = (update.speedKmh || 0).toFixed(1);
   $("max-speed").textContent = (update.maxKmh || 0).toFixed(1);
-  $("cadence").textContent = state.mode === "sim-car" ? "~0.2" : state.mode === "sim-run" ? "~3.1" : "…";
+  $("cadence").textContent = update.motion > 8 ? "חי" : "…";
   const s = Math.floor((update.durationMs || 0) / 1000);
   $("live-time").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   const ring = $("speed-ring");
   if (ring) ring.style.setProperty("--p", String(Math.min(1, (update.speedKmh || 0) / 36)));
+  if (update.gpsError) {
+    $("live-status").textContent = "אבד אות GPS — שבו לאוויר הפתוח";
+  } else if (update.gpsAccuracy != null) {
+    $("live-status").textContent = `מיקום חי · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
+  }
 }
 
 async function startRun() {
   if (state.tracker?.active) return;
+  const probe = state.gpsOk ? { ok: true } : await refreshGpsLock();
+  if (!probe.ok) {
+    toast("אין קליטת GPS. שפרו מיקום כדי להתחיל.");
+    return;
+  }
   $("btn-start").disabled = true;
   $("btn-stop").disabled = false;
   document.body.classList.add("run-mode");
@@ -128,36 +162,27 @@ async function startRun() {
   $("live-speed").textContent = "0.0";
   $("max-speed").textContent = "0.0";
   $("live-time").textContent = "00:00";
+  $("live-status").textContent = "מחכים למיקום ולתנועת הטלפון";
 
   state.tracker = new Tracker(onLive);
-
-  if (state.mode === "gps") {
-    $("live-status").textContent = "GPS + חיישני תנועה";
-    try {
-      await state.tracker.startLive();
-    } catch (e) {
-      toast(e.message || "אין GPS — עבור לסימולציה");
-      stopRun();
-    }
-    return;
+  try {
+    await state.tracker.startLive();
+  } catch (e) {
+    toast(e.message || "אין GPS");
+    $("btn-start").disabled = false;
+    $("btn-stop").disabled = true;
+    document.body.classList.remove("run-mode");
+    showView("home");
+    refreshGpsLock();
   }
-
-  state.tracker.startDemo();
-  const kind = state.mode === "sim-car" ? "car" : "run";
-  $("live-status").textContent =
-    kind === "car" ? "סימולציית רכב — תנועה חלקה" : "סימולציית ריצה — bounce + GPS";
-  state.demoLoop = true;
-  const r = await playDemo(state.tracker, { kind, durationMs: 7000, hz: 24 });
-  if (r === "done" && state.tracker?.active) stopRun();
 }
 
 function stopRun() {
-  state.demoLoop = false;
   document.body.classList.remove("run-mode");
-  $("btn-start").disabled = false;
   $("btn-stop").disabled = true;
   if (!state.tracker) {
     showView("home");
+    refreshGpsLock();
     return;
   }
   const session = state.tracker.stop();
@@ -184,6 +209,7 @@ function stopRun() {
   renderResult();
   showView("result");
   renderProfile();
+  refreshGpsLock();
 }
 
 function renderResult() {
@@ -318,7 +344,7 @@ async function init() {
   renderProfile();
   renderHistory();
   await openEditor();
-  setMode(state.mode);
+  refreshGpsLock();
 
   async function pickTable(id) {
     state.selectedId = id;
@@ -337,9 +363,7 @@ async function init() {
     if (id) pickTable(id);
   });
   $("table-select").addEventListener("change", (e) => pickTable(e.target.value));
-  document.querySelectorAll(".modes button").forEach((b) =>
-    b.addEventListener("click", () => setMode(b.dataset.mode))
-  );
+  $("btn-gps-retry").addEventListener("click", () => refreshGpsLock());
   $("btn-start").addEventListener("click", startRun);
   $("btn-stop").addEventListener("click", stopRun);
   $("btn-new-run").addEventListener("click", () => showView("home"));

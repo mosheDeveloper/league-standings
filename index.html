@@ -35,16 +35,16 @@
       <select id="table-select" class="sr-only" aria-hidden="true"></select>
 
       <div class="go">
-        <button type="button" class="go-btn" id="btn-start">
+        <button type="button" class="go-btn" id="btn-start" disabled>
           <span>התחל</span>
         </button>
         <p class="go-hint">לחצו ורוצו. הטלפון בכיס.</p>
       </div>
 
-      <div class="modes">
-        <button type="button" data-mode="gps">GPS</button>
-        <button type="button" data-mode="sim-run" class="on">ריצה</button>
-        <button type="button" data-mode="sim-car">רכב</button>
+      <div class="gps-status" id="gps-status" data-state="checking">
+        <span class="gps-dot" aria-hidden="true"></span>
+        <p id="gps-status-text">בודקים קליטת GPS…</p>
+        <button type="button" class="text-btn" id="btn-gps-retry">בדיקת מיקום</button>
       </div>
       <p class="hint" id="profile-box"></p>
     </section>

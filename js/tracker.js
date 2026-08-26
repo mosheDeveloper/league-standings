@@ -14,6 +14,8 @@ export class Tracker {
     this._orientHandler = null;
     this._tilt = { beta: 0, gamma: 0 };
     this._raf = null;
+    this.gpsAccuracy = null;
+    this.gpsError = null;
   }
 
   currentSpeedKmh() {
@@ -51,6 +53,8 @@ export class Tracker {
       maxKmh: this.liveMaxKmh(),
       samples: this.gps.length,
       motion: this.motion.length,
+      gpsAccuracy: this.gpsAccuracy,
+      gpsError: this.gpsError,
     });
   }
 
@@ -110,9 +114,11 @@ export class Tracker {
           lat: latitude,
           lng: longitude,
         });
+        this.gpsAccuracy = accuracy;
       },
       (err) => {
         this.lastError = err.message;
+        this.gpsError = err;
         this._emit();
       },
       { enableHighAccuracy: true, maximumAge: 250, timeout: 8000 }
@@ -153,3 +159,44 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
+
+/** One-shot GPS lock check before a run may start. */
+export function probeGps({ timeout = 9000, maxAccuracyM = 45 } = {}) {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve({
+        ok: false,
+        reason: "unsupported",
+        message: "אין GPS במכשיר. אי אפשר להתחיל מדידה.",
+      });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const accuracy = pos.coords.accuracy;
+        if (Number.isFinite(accuracy) && accuracy > maxAccuracyM) {
+          resolve({
+            ok: false,
+            reason: "weak",
+            accuracy,
+            message: `אין קליטת GPS מספיקה (דיוק ${Math.round(accuracy)} מ׳). צאו לאוויר הפתוח ושפרו מיקום כדי להתחיל.`,
+          });
+          return;
+        }
+        resolve({ ok: true, accuracy, coords: pos.coords });
+      },
+      (err) => {
+        const denied = err.code === 1;
+        resolve({
+          ok: false,
+          reason: denied ? "denied" : "unavailable",
+          message: denied
+            ? "אין הרשאת מיקום. אפשרו GPS כדי להתחיל ריצה."
+            : "אין קליטת GPS. הדליקו מיקום, צאו החוצה, ושפרו קליטה כדי להתחיל.",
+        });
+      },
+      { enableHighAccuracy: true, timeout, maximumAge: 0 }
+    );
+  });
+}
+

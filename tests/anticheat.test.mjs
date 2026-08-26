@@ -88,6 +88,20 @@ test("cadence detector finds a 3Hz bounce", async () => {
   assert.ok(rate > 2.4 && rate < 3.6);
 });
 
+test("still phone at speed is treated as a car", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  for (let i = 0; i < 80; i++) {
+    const t = t0 + i * 50;
+    gps.push({ t, speedKmh: 28, accuracy: 8 });
+    motion.push({ t, accMag: 9.81, tiltBeta: 2, tiltGamma: 0.4 });
+  }
+  const v = analyzeRun({ gps, motion, durationMs: 4000 });
+  assert.equal(v.valid, false);
+  assert.ok(v.flags.includes("still_phone") || v.label === "still_phone");
+});
+
 test("share caption invites others to use the app", async () => {
   const { buildSharePayload, INVITE } = await import("../js/share.js");
   const table = {

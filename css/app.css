@@ -94,25 +94,30 @@ h1, .page-title {
 }
 .go-hint { color: var(--dim); margin: 14px 0 0; font-size: 13px; }
 
-.modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  background: rgba(255,255,255,.05);
-  border-radius: 16px;
-  padding: 4px;
+.gps-status {
   margin-top: 18px;
+  background: rgba(255,255,255,.05);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 10px;
+  align-items: start;
 }
-.modes button {
-  border: 0;
-  background: transparent;
-  color: var(--dim);
-  font: inherit;
-  font-weight: 800;
-  font-size: 13px;
-  padding: 10px;
-  border-radius: 12px;
+.gps-status p { margin: 0; font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--dim); }
+.gps-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #888; margin-top: 5px;
 }
-.modes button.on { background: #0e2216; color: var(--lime); }
+.gps-status[data-state="checking"] .gps-dot { background: #ffc857; }
+.gps-status[data-state="ok"] .gps-dot { background: var(--lime); }
+.gps-status[data-state="bad"] .gps-dot { background: var(--red); }
+.gps-status[data-state="ok"] p { color: var(--ink); }
+.gps-status[data-state="bad"] p { color: #ffb4bb; }
+
+.go-btn:disabled {
+  opacity: .38;
+  box-shadow: none;
+}
 
 .hint { color: var(--dim); font-size: 13px; line-height: 1.45; }
 .icon-btn {

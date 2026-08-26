@@ -171,13 +171,16 @@ export function analyzeRun(session = {}) {
   const maxSpeedKmh = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
   const stats = motionStats(motion);
 
+  const flags = [];
+  const stillPhone = stats.accStd < 0.85 && stats.tiltStd < 1.8 && stats.cadenceHz < 1.25;
+  if (stillPhone) flags.push("still_phone");
+
   const speedTerm = clamp((maxSpeedKmh - 22) / 38, 0, 1);
   const cadenceTerm = stats.cadenceHz >= 1.8 && stats.cadenceHz <= 4.8 ? 0 : 1;
   const varTerm = stats.accStd < 1.2 ? 1 : 0;
   const vehicleScore =
     Math.round((cadenceTerm * 0.45 + varTerm * 0.35 + speedTerm * 0.2) * 100) / 100;
 
-  const flags = [];
   if (maxSpeedKmh > HUMAN_SPEED_CAP_KMH) flags.push("over_human_cap");
   if (maxSpeedKmh > 55) flags.push("hard_vehicle_speed");
   if (vehicleScore >= 0.55) flags.push("vehicle_motion");
@@ -197,6 +200,10 @@ export function analyzeRun(session = {}) {
     valid = false;
     label = "vehicle_speed";
     messageHe = "מהירות לא אנושית — נחסמה כנסיעה ברכב.";
+  } else if (stillPhone && maxSpeedKmh >= 12) {
+    valid = false;
+    label = "still_phone";
+    messageHe = "הטלפון כמעט לא זז במהלך המדידה — כך מזהים נסיעה ברכב.";
   } else if (vehicleScore >= 0.55 && maxSpeedKmh >= 25 && !stats.runningLikeMotion) {
     valid = false;
     label = "smooth_high_speed";
