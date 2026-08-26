@@ -1,0 +1,17 @@
+{
+  "name": "Sprint Max PWA",
+  "install": "node --version && python3 --version",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "python3 -m http.server 4173",
+      "description": "Serves the static PWA at http://localhost:4173"
+    }
+  ],
+  "ports": [
+    {
+      "name": "web server",
+      "port": 4173
+    }
+  ]
+}
