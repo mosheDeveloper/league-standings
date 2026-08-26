@@ -170,6 +170,9 @@ function renderResult() {
   badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר — חשד לרכב / רמאות";
   $("result-msg").textContent = a.messageHe;
   $("share-line").textContent = a.valid ? r.share : "לא ניתן לשתף שיא לא מאושר כהישג.";
+  document.querySelectorAll("#btn-share, #btn-wa, #btn-x").forEach((el) => {
+    el.hidden = !a.valid;
+  });
   $("cadence-out").textContent = `${a.cadenceHz ?? "—"} הרץ · bounce ${a.bounceScore ?? "—"}`;
 
   const athletes = r.comparison.athletes || [];
