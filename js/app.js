@@ -3,7 +3,7 @@ import { rankAgainstTable } from "./compare.js";
 import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
 import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
-import { buildBoards, bestVerifiedKmh } from "./records.js";
+import { buildBoards, bestVerifiedKmh, canSeeFriends } from "./records.js";
 import {
   getSession,
   saveSession,
@@ -11,6 +11,7 @@ import {
   loadAuthConfig,
   loginWithMeta,
   localConsentSession,
+  guestSession,
 } from "./auth.js";
 
 const $ = (id) => document.getElementById(id);
@@ -57,7 +58,9 @@ function greet() {
 function renderAccountBtn() {
   const btn = $("btn-account");
   if (!btn) return;
-  btn.textContent = state.session?.name ? state.session.name : "כניסה";
+  if (!state.session) btn.textContent = "כניסה";
+  else if (state.session.guest) btn.textContent = "אורח";
+  else btn.textContent = state.session.name || "חשבון";
   const logout = $("btn-logout");
   if (logout) logout.hidden = !state.session;
   const title = $("login-title");
@@ -84,9 +87,18 @@ function renderRecords() {
     friends: "שיאי חברים",
   };
   $("records-sub").textContent = titles[key] || "";
-  if (!state.session && key === "friends") {
-    $("records-place").textContent = "התחברו בפייסבוק או באינסטגרם כדי לראות שיאי חברים.";
-    $("records-list").innerHTML = `<li>אין עדיין רשימת חברים.</li>`;
+  if (key === "friends" && !canSeeFriends(state.session)) {
+    $("records-place").textContent = "צריך להתחבר כדי להשוות עם חברים";
+    const guestNote = state.session?.guest
+      ? `<p class="friends-gate-sub">כרגע אתם כאורח${state.session.name ? ` (${state.session.name})` : ""}. אורח לא כולל רשימת חברים.</p>`
+      : `<p class="friends-gate-sub">בלי חיבור לפייסבוק או אינסטגרם אי אפשר להשוות שיאים מול חברים.</p>`;
+    $("records-list").innerHTML = `
+      <li class="friends-gate">
+        <p>התחברו עם פייסבוק או אינסטגרם כדי לראות מי מהחברים רץ מהר יותר — ולהופיע אצלם בטבלה.</p>
+        ${guestNote}
+        <button type="button" class="social-login fb" id="btn-records-login">התחברות לפייסבוק / אינסטגרם</button>
+      </li>`;
+    $("btn-records-login")?.addEventListener("click", openLogin);
     return;
   }
   if (board.place) {
@@ -126,7 +138,11 @@ async function finishLogin(session) {
   renderAccountBtn();
   renderRecords();
   closeLogin();
-  toast(session.friendsFromApi ? "מחוברים · נטענו חברים" : "מחוברים");
+  if (session.guest) {
+    toast("נכנסתם כאורח. שיאי חברים זמינים אחרי חיבור לפייסבוק או אינסטגרם.");
+  } else {
+    toast(session.friendsFromApi ? "מחוברים · נטענו חברים" : "מחוברים");
+  }
 }
 
 async function onMetaLogin(provider) {
@@ -549,16 +565,9 @@ async function init() {
   });
   $("btn-login-fb").addEventListener("click", () => onMetaLogin("facebook"));
   $("btn-login-ig").addEventListener("click", () => onMetaLogin("instagram"));
-  $("btn-login-local").addEventListener("click", async () => {
+  $("btn-login-guest").addEventListener("click", async () => {
     const name = $("login-name").value || Store.getName();
-    const session = localConsentSession("facebook", name);
-    session.friends = (state.recordsCatalog?.sampleFriends || []).map((f) => ({
-      id: f.id,
-      name: f.name,
-      country: f.country,
-      maxSpeedKmh: f.maxSpeedKmh,
-    }));
-    await finishLogin(session);
+    await finishLogin(guestSession(name));
   });
   $("btn-logout").addEventListener("click", () => {
     clearSession();

@@ -129,7 +129,7 @@ test("records boards rank me locally, globally and among friends", async () => {
     ],
     sampleFriends: [{ id: "f1", name: "F", country: "IL", maxSpeedKmh: 30 }],
   };
-  const session = { id: "me", name: "משה", country: "IL", friends: [] };
+  const session = { id: "me", name: "משה", country: "IL", provider: "facebook", friends: [] };
   const boards = buildBoards({ catalog, session, myKmh: 32 });
   assert.equal(boards.local.place, 2);
   assert.equal(boards.local.total, 3);
@@ -137,4 +137,16 @@ test("records boards rank me locally, globally and among friends", async () => {
   assert.equal(boards.global.total, 4);
   assert.equal(boards.friends.place, 1);
   assert.ok(boards.friends.sorted.some((u) => u.me));
+  assert.equal(boards.canSeeFriends, true);
+
+  const guest = buildBoards({
+    catalog,
+    session: { id: "g", name: "אורח", country: "IL", provider: "guest", guest: true, friends: [] },
+    myKmh: 32,
+  });
+  assert.equal(guest.canSeeFriends, false);
+  assert.equal(guest.friends.sorted.filter((u) => !u.me).length, 0);
+
+  const loggedOut = buildBoards({ catalog, session: null, myKmh: 28 });
+  assert.equal(loggedOut.canSeeFriends, false);
 });

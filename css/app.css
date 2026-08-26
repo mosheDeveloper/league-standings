@@ -329,7 +329,27 @@ h1, .page-title {
   color: #fff;
 }
 .social-login.fb { background: #1877f2; }
-.social-login.ig { background: linear-gradient(90deg, #f58529, #dd2a7b, #8134af); }
+.social-login.ig { background: #c13584; }
+.social-login.guest { background: rgba(255,255,255,.1); color: var(--ink); margin-top: 10px; }
+.friends-gate {
+  display: grid;
+  gap: 12px;
+  padding: 18px 8px 8px;
+  text-align: center;
+  list-style: none;
+}
+.friends-gate p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+  font-weight: 600;
+}
+.friends-gate-sub {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--dim) !important;
+}
 .field-lab { display: block; margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--dim); }
 #login-name {
   width: 100%;

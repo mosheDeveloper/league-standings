@@ -105,6 +105,21 @@ export async function loginWithMeta(provider, config) {
   return sessionFromFacebook(provider);
 }
 
+export function guestSession(name) {
+  const clean = (name || "").trim() || "אורח";
+  return {
+    id: `guest-${Date.now()}`,
+    provider: "guest",
+    guest: true,
+    name: clean,
+    avatar: "",
+    country: detectCountry(),
+    friends: [],
+    friendsFromApi: false,
+    at: new Date().toISOString(),
+  };
+}
+
 export function localConsentSession(provider, name) {
   const clean = (name || "").trim() || "רץ חדש";
   return {

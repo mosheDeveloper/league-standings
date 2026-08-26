@@ -22,6 +22,11 @@ export function detectCountry(fallback = "IL") {
   }
 }
 
+export function canSeeFriends(session) {
+  if (!session || session.guest || session.provider === "guest") return false;
+  return session.provider === "facebook" || session.provider === "instagram";
+}
+
 export function countryName(code, countries = {}) {
   return countries[code] || code || "העולם";
 }
@@ -67,19 +72,19 @@ export function buildBoards({ catalog, session, myKmh }) {
   const local = all.filter((u) => u.country === country);
   const global = all;
 
-  const friendSeeds = session?.friends?.length
-    ? session.friends.map((f) => {
-        const hit = (catalog.users || []).find((u) => u.facebookId === f.id || u.id === f.id);
-        return {
-          id: f.id,
-          name: f.name,
-          country: f.country || country,
-          maxSpeedKmh: hit?.maxSpeedKmh || f.maxSpeedKmh || 0,
-        };
-      })
-    : session
-      ? catalog.sampleFriends || []
-      : [];
+  const friendSeeds = canSeeFriends(session)
+    ? session.friendsFromApi && session.friends?.length
+      ? session.friends.map((f) => {
+          const hit = (catalog.users || []).find((u) => u.facebookId === f.id || u.id === f.id);
+          return {
+            id: f.id,
+            name: f.name,
+            country: f.country || country,
+            maxSpeedKmh: hit?.maxSpeedKmh || f.maxSpeedKmh || 0,
+          };
+        })
+      : catalog.sampleFriends || []
+    : [];
 
   const friends = withMe(
     friendSeeds.filter((f) => f.maxSpeedKmh > 0 || f.id),
@@ -96,6 +101,8 @@ export function buildBoards({ catalog, session, myKmh }) {
       me?.id
     ),
     loggedIn: !!session,
+    guest: !!session?.guest || session?.provider === "guest",
+    canSeeFriends: canSeeFriends(session),
     me,
   };
 }
