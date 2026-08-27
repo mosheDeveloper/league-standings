@@ -1,0 +1,26 @@
+{
+  "id": "athletics-stars",
+  "name": "כוכבים",
+  "sport": "athletics",
+  "disclaimer": "מהירויות שיא מקטע (flying) לפי מדידות תחרות ידועות שפורסמו. נתונים סטטיים באפליקציה.",
+  "teams": [
+    {
+      "id": "sprint-stars",
+      "name": "ספרינטרים",
+      "athletes": [
+        { "id": "bolt", "name": "יוסיין בולט", "maxSpeedKmh": 44.72, "note": "שיא 100 מ׳ — מדידת תחרות" },
+        { "id": "gay", "name": "טייסון גיי", "maxSpeedKmh": 44.13, "note": "מדידת תחרות מדווחת" },
+        { "id": "blake", "name": "יוהאן בלייק", "maxSpeedKmh": 43.87, "note": "מדידת תחרות מדווחת" },
+        { "id": "lyles", "name": "נואה ליילס", "maxSpeedKmh": 43.6, "note": "הערכה מדווחת" },
+        { "id": "kerley", "name": "פרד קרלי", "maxSpeedKmh": 43.2, "note": "הערכה מדווחת" },
+        { "id": "kishane", "name": "קישאיין תומפסון", "maxSpeedKmh": 43.4, "note": "הערכה מדווחת" },
+        { "id": "thompson-herah", "name": "איליין תומפסון-הרה", "maxSpeedKmh": 39.8, "note": "מדידת תחרות מדווחת" },
+        { "id": "fraser-pryce", "name": "שלי-אן פרייזר-פרייס", "maxSpeedKmh": 39.5, "note": "מדידת תחרות מדווחת" },
+        { "id": "richardson", "name": "שעקרי ריצ'רדסון", "maxSpeedKmh": 39.1, "note": "הערכה מדווחת" },
+        { "id": "alfred", "name": "ג'וליאן אלפרד", "maxSpeedKmh": 38.9, "note": "הערכה מדווחת" },
+        { "id": "ashley-nelson", "name": "שריקה ג'קסון", "maxSpeedKmh": 38.4, "note": "הערכה מדווחת" },
+        { "id": "bromell", "name": "טרייפון ברומל", "maxSpeedKmh": 43.0, "note": "הערכה מדווחת" }
+      ]
+    }
+  ]
+}

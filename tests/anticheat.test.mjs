@@ -123,29 +123,64 @@ test("athlete pool filters by sport, league and team", async () => {
     filterOptions,
     describeFilters,
     rankAgainstTable,
+    normalizeLeagueTable,
+    flattenCatalog,
   } = await import("../js/compare.js");
 
-  const catalog = [
-    { id: "football-stars", name: "כוכבי כדורגל", sport: "football" },
-    { id: "premier-league", name: "פרמייר ליג", sport: "football" },
-    { id: "nba", name: "כוכבי NBA", sport: "basketball" },
-  ];
+  const catalogDoc = {
+    sports: [
+      {
+        id: "football",
+        name: "כדורגל",
+        leagues: [
+          { id: "premier-league", name: "פרמייר ליג", file: "x" },
+          { id: "la-liga", name: "לה ליגה", file: "y" },
+        ],
+      },
+      {
+        id: "basketball",
+        name: "כדורסל",
+        leagues: [{ id: "nba", name: "NBA", file: "z" }],
+      },
+    ],
+  };
+  const catalog = flattenCatalog(catalogDoc);
   const tables = {
-    "football-stars": {
-      athletes: [
-        { id: "mbappe", name: "אמבפה", maxSpeedKmh: 38, team: "ריאל מדריד" },
-        { id: "saka", name: "סאקה", maxSpeedKmh: 34.4, team: "ארסנל" },
+    "premier-league": normalizeLeagueTable({
+      teams: [
+        {
+          id: "newcastle",
+          name: "ניוקאסל",
+          athletes: [{ id: "gordon", name: "גורדון", maxSpeedKmh: 36.6 }],
+        },
+        {
+          id: "arsenal",
+          name: "ארסנל",
+          athletes: [{ id: "saka2", name: "סאקה פל", maxSpeedKmh: 34 }],
+        },
       ],
-    },
-    "premier-league": {
-      athletes: [
-        { id: "gordon", name: "גורדון", maxSpeedKmh: 36.6, team: "ניוקאסל" },
-        { id: "saka2", name: "סאקה פל", maxSpeedKmh: 34, team: "ארסנל" },
+    }),
+    "la-liga": normalizeLeagueTable({
+      teams: [
+        {
+          id: "real",
+          name: "ריאל מדריד",
+          athletes: [
+            { id: "mbappe", name: "אמבפה", maxSpeedKmh: 38 },
+            { id: "saka", name: "סאקה", maxSpeedKmh: 34.4 },
+          ],
+        },
       ],
-    },
-    nba: {
-      athletes: [{ id: "fox", name: "פוקס", maxSpeedKmh: 33, team: "סן אנטוניו" }],
-    },
+    }),
+    nba: normalizeLeagueTable({
+      teams: [
+        {
+          id: "spurs",
+          name: "סן אנטוניו",
+          athletes: [{ id: "fox", name: "פוקס", maxSpeedKmh: 33 }],
+        },
+      ],
+    }),
   };
 
   const all = buildAthletePool(tables, catalog, {});
@@ -161,7 +196,7 @@ test("athlete pool filters by sport, league and team", async () => {
   assert.ok(league.every((a) => a.leagueId === "premier-league"));
 
   const team = buildAthletePool(tables, catalog, { sport: "football", team: "ארסנל" });
-  assert.equal(team.length, 2);
+  assert.equal(team.length, 1);
   assert.ok(team.every((a) => a.team === "ארסנל"));
 
   const opts = filterOptions(tables, catalog, { sport: "football" });

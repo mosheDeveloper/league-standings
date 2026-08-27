@@ -33,22 +33,7 @@
         </div>
       </header>
 
-      <p class="label">עם מי משווים היום</p>
-      <div class="filter-stack" id="home-filters">
-        <div class="filter-row">
-          <p class="label tight">ספורט</p>
-          <div class="chips" id="home-filter-sport" role="listbox" aria-label="בחירת ספורט"></div>
-        </div>
-        <div class="filter-row">
-          <p class="label tight">ליגה</p>
-          <div class="chips" id="home-filter-league" role="listbox" aria-label="בחירת ליגה"></div>
-        </div>
-        <div class="filter-row" id="home-filter-team-row">
-          <p class="label tight">קבוצה</p>
-          <div class="chips" id="home-filter-team" role="listbox" aria-label="בחירת קבוצה"></div>
-        </div>
-      </div>
-      <p class="hint tight" id="home-compare-scope"></p>
+      <p class="hint home-lead">מדדו מהירות ריצה. אחרי ריצה — השוו מול מקצוענים במסך <strong>מקצוענים</strong>.</p>
       <select id="table-select" class="sr-only" aria-hidden="true" tabindex="-1"></select>
 
       <div class="go">
@@ -127,21 +112,21 @@
     </section>
 
     <section class="view" data-view="tables">
-      <h1 class="page-title">ליגות</h1>
-      <p class="hint">השוו את שיא הריצה שלכם לספורטאים — בלי צורך לרוץ עכשיו. ספורט, ליגה וקבוצה הם סינון אופציונלי.</p>
+      <h1 class="page-title">מקצוענים</h1>
+      <p class="hint">בחרו ענף → ליגה → קבוצה. הסולם מציג ספורטאים עם שיא מהירות שמור במסד המקומי (JSON).</p>
 
       <div class="filter-stack" id="compare-filters">
         <div class="filter-row">
-          <p class="label tight">ספורט</p>
-          <div class="chips" id="filter-sport" role="listbox" aria-label="סינון ספורט"></div>
+          <p class="label tight">ענף ספורט</p>
+          <div class="chips" id="filter-sport" role="listbox" aria-label="בחירת ענף ספורט"></div>
         </div>
-        <div class="filter-row">
-          <p class="label tight">ליגה</p>
-          <div class="chips" id="filter-league" role="listbox" aria-label="סינון ליגה"></div>
+        <div class="filter-row" id="filter-league-row">
+          <p class="label tight" id="filter-league-label">ליגה</p>
+          <div class="chips" id="filter-league" role="listbox" aria-label="בחירת ליגה"></div>
         </div>
         <div class="filter-row" id="filter-team-row">
           <p class="label tight">קבוצה</p>
-          <div class="chips" id="filter-team" role="listbox" aria-label="סינון קבוצה"></div>
+          <div class="chips" id="filter-team" role="listbox" aria-label="בחירת קבוצה"></div>
         </div>
       </div>
 
@@ -150,11 +135,9 @@
       <ul class="ladder" id="compare-ladder"></ul>
       <p class="hint" id="compare-disclaimer"></p>
 
-      <h2 class="section-title">טבלאות לריצה</h2>
-      <p class="hint">בחירת ליגה ספציפית למעלה גם מגדירה את ההשוואה בריצה הבאה. אפשר גם לבחור כאן.</p>
-      <div id="league-cards"></div>
       <details class="advanced">
-        <summary>עריכת JSON</summary>
+        <summary>עריכת JSON מקומי</summary>
+        <p class="hint">המסד כולו בקובצי JSON תחת data/ — בלי משיכה חיה מהרשת.</p>
         <select id="editor-select"></select>
         <textarea id="json-editor" spellcheck="false"></textarea>
         <div class="btn-row">
@@ -184,7 +167,7 @@
     </button>
     <button type="button" data-view="tables">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5zM5 10h14v4H5zM5 16h14v4H5z" fill="currentColor"/></svg>
-      ליגות
+      מקצוענים
     </button>
   </nav>
 
