@@ -203,34 +203,23 @@ function sportMark(sport) {
 }
 
 function fillSelects() {
+  if (!state.catalog) return;
   const opts = state.catalog.tables
     .map((t) => `<option value="${t.id}">${t.name || t.title}</option>`)
     .join("");
-  $("table-select").innerHTML = opts;
-  $("editor-select").innerHTML = opts;
-  $("table-select").value = state.selectedId;
-  $("editor-select").value = state.selectedId;
-  $("league-chips").innerHTML = state.catalog.tables
-    .map(
-      (t) =>
-        `<button type="button" class="league-chip ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">${sportMark(t.sport)} ${t.name || t.title}</button>`
-    )
-    .join("");
+  if ($("table-select")) {
+    $("table-select").innerHTML = opts;
+    $("table-select").value = state.selectedId;
+  }
+  if ($("editor-select")) {
+    $("editor-select").innerHTML = opts;
+    $("editor-select").value = state.selectedId;
+  }
 }
 
 function renderLeagues() {
-  const host = $("league-cards");
-  if (!host) return;
-  host.innerHTML = state.catalog.tables
-    .map((t) => {
-      const table = state.tables[t.id];
-      const n = table?.athletes?.length ?? "—";
-      return `<button type="button" class="league-card ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">
-        <strong>${sportMark(t.sport)} ${t.name || t.title}</strong>
-        <small>${t.blurb || ""} · ${n} ספורטאים</small>
-      </button>`;
-    })
-    .join("");
+  renderFilterChips();
+  renderLeaguesCardsOnly();
   renderAthleteCompare();
 }
 
@@ -265,19 +254,24 @@ function sanitizeCompareFilters(filters) {
   return next;
 }
 
-function setCompareFilters( partial, { syncRunTable = true } = {}) {
+function setCompareFilters(partial, { syncRunTable = true } = {}) {
   const merged = sanitizeCompareFilters({ ...state.compareFilters, ...partial });
   state.compareFilters = merged;
   Store.setCompareFilters(merged);
   if (syncRunTable && merged.leagueId) {
     state.selectedId = merged.leagueId;
     Store.setTableId(merged.leagueId);
-    fillSelects();
-    renderLeagues();
-    return;
+  } else if (syncRunTable && !merged.leagueId && state.catalog?.tables?.length) {
+    const match = state.catalog.tables.find((t) => !merged.sport || t.sport === merged.sport);
+    if (match) {
+      state.selectedId = match.id;
+      Store.setTableId(match.id);
+    }
   }
-  renderAthleteCompare();
+  fillSelects();
+  renderFilterChips();
   renderLeaguesCardsOnly();
+  renderAthleteCompare();
 }
 
 function renderLeaguesCardsOnly() {
@@ -295,13 +289,13 @@ function renderLeaguesCardsOnly() {
     .join("");
 }
 
-function renderAthleteCompare() {
-  if (!state.catalog) return;
+function paintFilterRow(sportHostId, leagueHostId, teamRowId, teamHostId) {
+  if (!state.catalog || !$(sportHostId)) return;
   const filters = sanitizeCompareFilters(state.compareFilters);
   state.compareFilters = filters;
   const opts = filterOptions(state.tables, state.catalog.tables, filters);
 
-  $("filter-sport").innerHTML =
+  $(sportHostId).innerHTML =
     chipHtml("הכל", !filters.sport, 'data-filter="sport" data-value=""') +
     opts.sports
       .map((s) =>
@@ -313,7 +307,7 @@ function renderAthleteCompare() {
       )
       .join("");
 
-  $("filter-league").innerHTML =
+  $(leagueHostId).innerHTML =
     chipHtml("הכל", !filters.leagueId, 'data-filter="league" data-value=""') +
     opts.leagues
       .map((l) =>
@@ -325,12 +319,12 @@ function renderAthleteCompare() {
       )
       .join("");
 
-  const teamRow = $("filter-team-row");
+  const teamRow = $(teamRowId);
   if (!opts.teams.length) {
-    teamRow.hidden = true;
-  } else {
+    if (teamRow) teamRow.hidden = true;
+  } else if (teamRow) {
     teamRow.hidden = false;
-    $("filter-team").innerHTML =
+    $(teamHostId).innerHTML =
       chipHtml("הכל", !filters.team, 'data-filter="team" data-value=""') +
       opts.teams
         .map((team) =>
@@ -339,15 +333,70 @@ function renderAthleteCompare() {
         .join("");
   }
 
+  return { filters, opts };
+}
+
+function renderFilterChips() {
+  const painted = paintFilterRow(
+    "filter-sport",
+    "filter-league",
+    "filter-team-row",
+    "filter-team"
+  );
+  paintFilterRow(
+    "home-filter-sport",
+    "home-filter-league",
+    "home-filter-team-row",
+    "home-filter-team"
+  );
+  const scopeEl = $("home-compare-scope");
+  if (scopeEl && painted) {
+    const athletes = buildAthletePool(state.tables, state.catalog.tables, painted.filters);
+    const scope = describeFilters(painted.filters, state.catalog.tables);
+    scopeEl.textContent = `${scope} · ${athletes.length} ספורטאים`;
+  }
+}
+
+function activeComparisonTable() {
+  const filters = sanitizeCompareFilters(state.compareFilters);
+  const athletes = buildAthletePool(state.tables, state.catalog?.tables || [], filters);
+  const title = describeFilters(filters, state.catalog?.tables || []);
+  const base =
+    (filters.leagueId && state.tables[filters.leagueId]) ||
+    state.tables[state.selectedId] ||
+    {};
+  return {
+    ...base,
+    id: filters.leagueId || state.selectedId || "pool",
+    title,
+    name: title,
+    athletes,
+    disclaimer:
+      (filters.leagueId && state.tables[filters.leagueId]?.disclaimer) ||
+      base.disclaimer ||
+      "מהירויות משוערות לפי הסינון שנבחר — להשוואה בלבד.",
+  };
+}
+
+function renderAthleteCompare() {
+  if (!state.catalog) return;
+  renderFilterChips();
+  const filters = sanitizeCompareFilters(state.compareFilters);
+  state.compareFilters = filters;
+
   const athletes = buildAthletePool(state.tables, state.catalog.tables, filters);
   const scope = describeFilters(filters, state.catalog.tables);
-  $("compare-scope").textContent = `${scope} · ${athletes.length} ספורטאים לפי מהירות`;
+  if ($("compare-scope")) {
+    $("compare-scope").textContent = `${scope} · ${athletes.length} ספורטאים לפי מהירות`;
+  }
 
   const myKmh = myBest();
+  if (!$("compare-place") || !$("compare-ladder")) return;
+
   if (!athletes.length) {
     $("compare-place").textContent = "אין ספורטאים בסינון הזה — נסו להרחיב.";
     $("compare-ladder").innerHTML = "";
-    $("compare-disclaimer").textContent = "";
+    if ($("compare-disclaimer")) $("compare-disclaimer").textContent = "";
     return;
   }
 
@@ -375,17 +424,20 @@ function renderAthleteCompare() {
       .join("");
   }
 
-  if (filters.leagueId) {
-    $("compare-disclaimer").textContent = state.tables[filters.leagueId]?.disclaimer || "";
-  } else {
-    $("compare-disclaimer").textContent =
-      "מהירויות משוערות לפי הטבלאות הכלולות — להשוואה בלבד, לא מדידה רשמית אחידה.";
+  if ($("compare-disclaimer")) {
+    if (filters.leagueId) {
+      $("compare-disclaimer").textContent = state.tables[filters.leagueId]?.disclaimer || "";
+    } else {
+      $("compare-disclaimer").textContent =
+        "מהירויות משוערות לפי הטבלאות הכלולות — להשוואה בלבד, לא מדידה רשמית אחידה.";
+    }
   }
 }
 
 function onCompareFilterClick(e) {
   const btn = e.target.closest("[data-filter]");
   if (!btn) return;
+  e.preventDefault();
   const kind = btn.dataset.filter;
   const value = btn.dataset.value || null;
   if (kind === "sport") {
@@ -495,15 +547,16 @@ function stopRun() {
   const verified = Store.verifiedRuns();
   const profile = buildProfile(verified.map((r) => r.analysis));
   const analysis = analyzeRun({ ...session, profile });
-  const table = state.tables[state.selectedId];
+  const table = activeComparisonTable();
   const comparison = rankAgainstTable(analysis.maxSpeedKmh, table);
   const payload = buildSharePayload(analysis.maxSpeedKmh, comparison, tableTitle(table));
   const share = payload.line;
   const result = {
     at: new Date().toISOString(),
     mode: state.mode,
-    tableId: state.selectedId,
+    tableId: table.id || state.selectedId,
     tableTitle: tableTitle(table),
+    filters: { ...state.compareFilters },
     maxKmh: analysis.maxSpeedKmh,
     analysis,
     comparison,
@@ -640,61 +693,34 @@ function wireInstall() {
   });
 }
 
-async function init() {
-  state.catalog = await loadCatalog();
-  state.selectedId = Store.getTableId();
-  if (!state.catalog.tables.some((t) => t.id === state.selectedId)) {
-    state.selectedId = state.catalog.tables[0].id;
-  }
-  fillSelects();
-  await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
-  state.compareFilters = sanitizeCompareFilters(Store.getCompareFilters());
-  Store.setCompareFilters(state.compareFilters);
-  renderLeagues();
-  renderProfile();
-  renderHistory();
-  await openEditor();
-  state.authConfig = await loadAuthConfig();
+async function pickTable(id) {
+  state.selectedId = id;
+  Store.setTableId(id);
   try {
-    state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();
-  } catch {
-    state.recordsCatalog = { users: [], sampleFriends: [], countries: {}, defaultCountry: "IL" };
-  }
-  state.session = getSession();
-  greet();
-  renderAccountBtn();
-  renderRecords();
-  refreshGpsLock();
-
-  async function pickTable(id) {
-    state.selectedId = id;
-    Store.setTableId(id);
     await ensureTable(id);
-    const meta = state.catalog.tables.find((t) => t.id === id);
-    state.compareFilters = sanitizeCompareFilters({
-      sport: meta?.sport || null,
-      leagueId: id,
-      team: null,
-    });
-    Store.setCompareFilters(state.compareFilters);
-    fillSelects();
-    renderLeagues();
+  } catch {
+    /* table may still be loading during early init */
   }
-
-  $("league-chips").addEventListener("click", (e) => {
-    const id = e.target.closest("[data-id]")?.dataset.id;
-    if (id) pickTable(id);
+  const meta = state.catalog?.tables?.find((t) => t.id === id);
+  setCompareFilters({
+    sport: meta?.sport || null,
+    leagueId: id,
+    team: null,
   });
-  $("league-cards").addEventListener("click", (e) => {
+}
+
+function wireUi() {
+  $("league-cards")?.addEventListener("click", (e) => {
     const id = e.target.closest("[data-id]")?.dataset.id;
     if (id) pickTable(id);
   });
   $("compare-filters")?.addEventListener("click", onCompareFilterClick);
-  $("table-select").addEventListener("change", (e) => pickTable(e.target.value));
-  $("btn-gps-retry").addEventListener("click", () => refreshGpsLock());
-  $("btn-start").addEventListener("click", startRun);
-  $("btn-stop").addEventListener("click", stopRun);
-  $("btn-new-run").addEventListener("click", () => showView("home"));
+  $("home-filters")?.addEventListener("click", onCompareFilterClick);
+  $("table-select")?.addEventListener("change", (e) => pickTable(e.target.value));
+  $("btn-gps-retry")?.addEventListener("click", () => refreshGpsLock());
+  $("btn-start")?.addEventListener("click", startRun);
+  $("btn-stop")?.addEventListener("click", stopRun);
+  $("btn-new-run")?.addEventListener("click", () => showView("home"));
   document.querySelectorAll("nav.tabbar button").forEach((b) =>
     b.addEventListener("click", () => {
       const v = b.dataset.view;
@@ -702,6 +728,7 @@ async function init() {
       if (v === "home") {
         renderProfile();
         greet();
+        renderFilterChips();
       }
       if (v === "records") renderRecords();
       if (v === "tables") {
@@ -711,22 +738,22 @@ async function init() {
       showView(v);
     })
   );
-  $("editor-select").addEventListener("change", openEditor);
-  $("btn-save-json").addEventListener("click", saveEditor);
-  $("btn-reset-json").addEventListener("click", () => {
+  $("editor-select")?.addEventListener("change", openEditor);
+  $("btn-save-json")?.addEventListener("click", saveEditor);
+  $("btn-reset-json")?.addEventListener("click", () => {
     Store.clearOverride($("editor-select").value);
     delete state.tables[$("editor-select").value];
     openEditor();
     toast("חזרה לטבלת ברירת המחדל");
   });
-  $("btn-export").addEventListener("click", () => {
+  $("btn-export")?.addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(Store.getOverrides(), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "runspeed-tables-overlay.json";
     a.click();
   });
-  $("import-file").addEventListener("change", async (e) => {
+  $("import-file")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -741,23 +768,23 @@ async function init() {
       toast("ייבוא נכשל");
     }
   });
-  $("btn-open-share").addEventListener("click", openShareSheet);
-  $("share-sheet").addEventListener("click", (e) => {
+  $("btn-open-share")?.addEventListener("click", openShareSheet);
+  $("share-sheet")?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-sheet]")) closeShareSheet();
     const p = e.target.closest("[data-platform]")?.dataset.platform;
     if (p) shareResult(p);
   });
-  $("btn-account").addEventListener("click", openLogin);
-  $("login-sheet").addEventListener("click", (e) => {
+  $("btn-account")?.addEventListener("click", openLogin);
+  $("login-sheet")?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-login]")) closeLogin();
   });
-  $("btn-login-fb").addEventListener("click", () => onMetaLogin("facebook"));
-  $("btn-login-ig").addEventListener("click", () => onMetaLogin("instagram"));
-  $("btn-login-guest").addEventListener("click", async () => {
+  $("btn-login-fb")?.addEventListener("click", () => onMetaLogin("facebook"));
+  $("btn-login-ig")?.addEventListener("click", () => onMetaLogin("instagram"));
+  $("btn-login-guest")?.addEventListener("click", async () => {
     const name = $("login-name").value || Store.getName();
     await finishLogin(guestSession(name));
   });
-  $("btn-logout").addEventListener("click", () => {
+  $("btn-logout")?.addEventListener("click", () => {
     clearSession();
     state.session = null;
     greet();
@@ -766,14 +793,14 @@ async function init() {
     closeLogin();
     toast("התנתקתם");
   });
-  $("records-tabs").addEventListener("click", (e) => {
+  $("records-tabs")?.addEventListener("click", (e) => {
     const tab = e.target.closest("[data-board]")?.dataset.board;
     if (!tab) return;
     state.recordsTab = tab;
     $("records-tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.board === tab));
     renderRecords();
   });
-  $("btn-clear-history").addEventListener("click", () => {
+  $("btn-clear-history")?.addEventListener("click", () => {
     localStorage.removeItem("sprint.max.runs");
     renderHistory();
     renderProfile();
@@ -781,6 +808,40 @@ async function init() {
     renderAthleteCompare();
   });
   wireInstall();
+}
+
+async function init() {
+  // Wire clicks first so sport/league/team chips work even while tables load.
+  wireUi();
+
+  state.catalog = await loadCatalog();
+  state.selectedId = Store.getTableId();
+  if (!state.catalog.tables.some((t) => t.id === state.selectedId)) {
+    state.selectedId = state.catalog.tables[0].id;
+  }
+  state.compareFilters = sanitizeCompareFilters(Store.getCompareFilters());
+  Store.setCompareFilters(state.compareFilters);
+  fillSelects();
+  renderFilterChips();
+
+  await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
+  state.compareFilters = sanitizeCompareFilters(state.compareFilters);
+  renderLeagues();
+  renderProfile();
+  renderHistory();
+  await openEditor();
+  state.authConfig = await loadAuthConfig();
+  try {
+    state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();
+  } catch {
+    state.recordsCatalog = { users: [], sampleFriends: [], countries: {}, defaultCountry: "IL" };
+  }
+  state.session = getSession();
+  greet();
+  renderAccountBtn();
+  renderRecords();
+  renderAthleteCompare();
+  refreshGpsLock();
 
   if ("serviceWorker" in navigator) {
     try {

@@ -34,8 +34,22 @@
       </header>
 
       <p class="label">עם מי משווים היום</p>
-      <div class="chips" id="league-chips"></div>
-      <select id="table-select" class="sr-only" aria-hidden="true"></select>
+      <div class="filter-stack" id="home-filters">
+        <div class="filter-row">
+          <p class="label tight">ספורט</p>
+          <div class="chips" id="home-filter-sport" role="listbox" aria-label="בחירת ספורט"></div>
+        </div>
+        <div class="filter-row">
+          <p class="label tight">ליגה</p>
+          <div class="chips" id="home-filter-league" role="listbox" aria-label="בחירת ליגה"></div>
+        </div>
+        <div class="filter-row" id="home-filter-team-row">
+          <p class="label tight">קבוצה</p>
+          <div class="chips" id="home-filter-team" role="listbox" aria-label="בחירת קבוצה"></div>
+        </div>
+      </div>
+      <p class="hint tight" id="home-compare-scope"></p>
+      <select id="table-select" class="sr-only" aria-hidden="true" tabindex="-1"></select>
 
       <div class="go">
         <button type="button" class="go-btn" id="btn-start" disabled>
@@ -153,7 +167,7 @@
     </section>
   </div>
 
-  <div class="toast" id="toast" hidden aria-live="polite"></div>
+  <div class="toast" id="toast" aria-live="polite"></div>
 
   <nav class="tabbar" aria-label="ראשי">
     <button type="button" class="active" data-view="home">
