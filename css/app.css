@@ -57,6 +57,16 @@ h1, .page-title {
 .page-title { margin-bottom: 12px; }
 
 .label { margin: 22px 0 10px; color: var(--dim); font-size: 13px; font-weight: 700; }
+.label.tight { margin: 14px 0 8px; }
+.filter-stack { margin-bottom: 8px; }
+.filter-row .chips { margin-bottom: 2px; }
+.compare-place {
+  margin: 16px 0 4px;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.ladder .muted { color: var(--dim); font-weight: 600; font-size: 12px; }
 .chips {
   display: flex;
   gap: 8px;
@@ -458,7 +468,8 @@ body.run-mode .phone { padding-bottom: 20px; }
   z-index: 40;
   transition: .2s;
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast[hidden] { display: none !important; }
+.toast.show { display: block; opacity: 1; transform: translateX(-50%) translateY(0); }
 
 .sr-only {
   position: absolute;

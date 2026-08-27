@@ -1,5 +1,11 @@
 import { analyzeRun, buildProfile } from "./anticheat.js";
-import { rankAgainstTable } from "./compare.js";
+import {
+  rankAgainstTable,
+  buildAthletePool,
+  filterOptions,
+  describeFilters,
+  sportLabel,
+} from "./compare.js";
 import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
 import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
@@ -28,13 +34,18 @@ const state = {
   session: null,
   recordsTab: "local",
   authConfig: null,
+  compareFilters: { sport: null, leagueId: null, team: null },
 };
 
 function toast(msg) {
   const el = $("toast");
+  if (!el) return;
+  el.hidden = false;
   el.textContent = msg;
   el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2200);
+  setTimeout(() => {
+    el.classList.remove("show");
+  }, 2200);
 }
 
 function showView(name) {
@@ -220,6 +231,170 @@ function renderLeagues() {
       </button>`;
     })
     .join("");
+  renderAthleteCompare();
+}
+
+function chipHtml(label, on, attrs) {
+  return `<button type="button" class="league-chip ${on ? "on" : ""}" ${attrs}>${label}</button>`;
+}
+
+function escAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+function sanitizeCompareFilters(filters) {
+  const next = {
+    sport: filters?.sport || null,
+    leagueId: filters?.leagueId || null,
+    team: filters?.team || null,
+  };
+  const opts = filterOptions(state.tables, state.catalog?.tables || [], next);
+  if (next.sport && !opts.sports.includes(next.sport)) next.sport = null;
+  if (next.leagueId && !opts.leagues.some((l) => l.id === next.leagueId)) {
+    next.leagueId = null;
+  }
+  const teamOpts = filterOptions(state.tables, state.catalog?.tables || [], {
+    sport: next.sport,
+    leagueId: next.leagueId,
+    team: null,
+  }).teams;
+  if (next.team && !teamOpts.includes(next.team)) next.team = null;
+  return next;
+}
+
+function setCompareFilters( partial, { syncRunTable = true } = {}) {
+  const merged = sanitizeCompareFilters({ ...state.compareFilters, ...partial });
+  state.compareFilters = merged;
+  Store.setCompareFilters(merged);
+  if (syncRunTable && merged.leagueId) {
+    state.selectedId = merged.leagueId;
+    Store.setTableId(merged.leagueId);
+    fillSelects();
+    renderLeagues();
+    return;
+  }
+  renderAthleteCompare();
+  renderLeaguesCardsOnly();
+}
+
+function renderLeaguesCardsOnly() {
+  const host = $("league-cards");
+  if (!host || !state.catalog) return;
+  host.innerHTML = state.catalog.tables
+    .map((t) => {
+      const table = state.tables[t.id];
+      const n = table?.athletes?.length ?? "—";
+      return `<button type="button" class="league-card ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">
+        <strong>${sportMark(t.sport)} ${t.name || t.title}</strong>
+        <small>${t.blurb || ""} · ${n} ספורטאים</small>
+      </button>`;
+    })
+    .join("");
+}
+
+function renderAthleteCompare() {
+  if (!state.catalog) return;
+  const filters = sanitizeCompareFilters(state.compareFilters);
+  state.compareFilters = filters;
+  const opts = filterOptions(state.tables, state.catalog.tables, filters);
+
+  $("filter-sport").innerHTML =
+    chipHtml("הכל", !filters.sport, 'data-filter="sport" data-value=""') +
+    opts.sports
+      .map((s) =>
+        chipHtml(
+          `${sportMark(s)} ${sportLabel(s)}`,
+          filters.sport === s,
+          `data-filter="sport" data-value="${s}"`
+        )
+      )
+      .join("");
+
+  $("filter-league").innerHTML =
+    chipHtml("הכל", !filters.leagueId, 'data-filter="league" data-value=""') +
+    opts.leagues
+      .map((l) =>
+        chipHtml(
+          l.name,
+          filters.leagueId === l.id,
+          `data-filter="league" data-value="${l.id}"`
+        )
+      )
+      .join("");
+
+  const teamRow = $("filter-team-row");
+  if (!opts.teams.length) {
+    teamRow.hidden = true;
+  } else {
+    teamRow.hidden = false;
+    $("filter-team").innerHTML =
+      chipHtml("הכל", !filters.team, 'data-filter="team" data-value=""') +
+      opts.teams
+        .map((team) =>
+          chipHtml(team, filters.team === team, `data-filter="team" data-value="${escAttr(team)}"`)
+        )
+        .join("");
+  }
+
+  const athletes = buildAthletePool(state.tables, state.catalog.tables, filters);
+  const scope = describeFilters(filters, state.catalog.tables);
+  $("compare-scope").textContent = `${scope} · ${athletes.length} ספורטאים לפי מהירות`;
+
+  const myKmh = myBest();
+  if (!athletes.length) {
+    $("compare-place").textContent = "אין ספורטאים בסינון הזה — נסו להרחיב.";
+    $("compare-ladder").innerHTML = "";
+    $("compare-disclaimer").textContent = "";
+    return;
+  }
+
+  if (myKmh > 0) {
+    const comparison = rankAgainstTable(myKmh, athletes);
+    $("compare-place").textContent = `את/ה במקום ${comparison.place} מתוך ${comparison.total} · שיא: ${myKmh.toFixed(1)} קמ״ש`;
+    const items = athletes.map((ath, i) => {
+      const meta = [ath.team, ath.leagueName].filter(Boolean).join(" · ");
+      return `<li><span>${i + 1}. ${ath.name}<small class="muted"> ${meta}</small></span><b>${Number(ath.maxSpeedKmh).toFixed(1)}</b></li>`;
+    });
+    const insertAt = athletes.filter((x) => x.maxSpeedKmh >= myKmh).length;
+    items.splice(
+      insertAt,
+      0,
+      `<li class="you"><span>את/ה · שיא אישי</span><b>${myKmh.toFixed(1)} קמ״ש</b></li>`
+    );
+    $("compare-ladder").innerHTML = items.join("");
+  } else {
+    $("compare-place").textContent = "עדיין אין שיא מאושר — הסולם מציג את הספורטאים. אחרי ריצה תקינה תופיעו כאן.";
+    $("compare-ladder").innerHTML = athletes
+      .map((ath, i) => {
+        const meta = [ath.team, ath.leagueName].filter(Boolean).join(" · ");
+        return `<li><span>${i + 1}. ${ath.name}<small class="muted"> ${meta}</small></span><b>${Number(ath.maxSpeedKmh).toFixed(1)}</b></li>`;
+      })
+      .join("");
+  }
+
+  if (filters.leagueId) {
+    $("compare-disclaimer").textContent = state.tables[filters.leagueId]?.disclaimer || "";
+  } else {
+    $("compare-disclaimer").textContent =
+      "מהירויות משוערות לפי הטבלאות הכלולות — להשוואה בלבד, לא מדידה רשמית אחידה.";
+  }
+}
+
+function onCompareFilterClick(e) {
+  const btn = e.target.closest("[data-filter]");
+  if (!btn) return;
+  const kind = btn.dataset.filter;
+  const value = btn.dataset.value || null;
+  if (kind === "sport") {
+    setCompareFilters({ sport: value || null, leagueId: null, team: null });
+  } else if (kind === "league") {
+    setCompareFilters({ leagueId: value || null, team: null });
+  } else if (kind === "team") {
+    setCompareFilters({ team: value || null }, { syncRunTable: false });
+  }
 }
 
 function setGpsUi({ state: gpsState, text, canStart }) {
@@ -341,6 +516,7 @@ function stopRun() {
   showView("result");
   renderProfile();
   renderRecords();
+  renderAthleteCompare();
   refreshGpsLock();
 }
 
@@ -472,6 +648,8 @@ async function init() {
   }
   fillSelects();
   await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
+  state.compareFilters = sanitizeCompareFilters(Store.getCompareFilters());
+  Store.setCompareFilters(state.compareFilters);
   renderLeagues();
   renderProfile();
   renderHistory();
@@ -492,6 +670,13 @@ async function init() {
     state.selectedId = id;
     Store.setTableId(id);
     await ensureTable(id);
+    const meta = state.catalog.tables.find((t) => t.id === id);
+    state.compareFilters = sanitizeCompareFilters({
+      sport: meta?.sport || null,
+      leagueId: id,
+      team: null,
+    });
+    Store.setCompareFilters(state.compareFilters);
     fillSelects();
     renderLeagues();
   }
@@ -504,6 +689,7 @@ async function init() {
     const id = e.target.closest("[data-id]")?.dataset.id;
     if (id) pickTable(id);
   });
+  $("compare-filters")?.addEventListener("click", onCompareFilterClick);
   $("table-select").addEventListener("change", (e) => pickTable(e.target.value));
   $("btn-gps-retry").addEventListener("click", () => refreshGpsLock());
   $("btn-start").addEventListener("click", startRun);
@@ -591,6 +777,8 @@ async function init() {
     localStorage.removeItem("sprint.max.runs");
     renderHistory();
     renderProfile();
+    renderRecords();
+    renderAthleteCompare();
   });
   wireInstall();
 
