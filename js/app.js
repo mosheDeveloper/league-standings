@@ -42,6 +42,10 @@ const state = {
 
 function toast(msg) {
   const el = $("toast");
+  if (!el) {
+    console.info(msg);
+    return;
+  }
   el.textContent = msg;
   el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 2200);
