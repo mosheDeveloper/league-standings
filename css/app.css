@@ -373,8 +373,11 @@ h1, .page-title {
 .meta-setup-status[data-state="ok"] { color: #9fe870; }
 .meta-setup-status[data-state="warn"] { color: #ffb86b; }
 .social-login:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
+  filter: grayscale(0.55);
   cursor: not-allowed;
+  box-shadow: none;
+  pointer-events: none;
 }
 .platforms i.msg { background: #0084ff; }
 #login-name {
