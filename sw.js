@@ -1,4 +1,4 @@
-const CACHE = "sprint-max-v9";
+const CACHE = "sprint-max-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,14 +15,15 @@ const ASSETS = [
   "./js/simulator.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
-  "./data/tables.json",
+  "./data/catalog.json",
   "./data/auth.json",
   "./data/records.json",
-  "./data/football-stars.json",
-  "./data/premier-league.json",
-  "./data/athletics.json",
-  "./data/nba.json",
-  "./data/israeli-football.json",
+  "./data/leagues/athletics-stars.json",
+  "./data/leagues/premier-league.json",
+  "./data/leagues/la-liga.json",
+  "./data/leagues/israeli-premier.json",
+  "./data/leagues/football-world.json",
+  "./data/leagues/nba.json",
 ];
 
 function isAppShell(url) {
@@ -52,7 +53,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // App shell: network-first so sport/league/team UI updates aren't stuck on old cache.
   if (isAppShell(url) || req.mode === "navigate") {
     event.respondWith(
       fetch(req)

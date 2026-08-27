@@ -1,0 +1,64 @@
+{
+  "id": "football-world",
+  "name": "כוכבים בעולם",
+  "sport": "football",
+  "disclaimer": "שחקנים מליגות נוספות עם שיא מהירות מדווח בתקשורת. נתונים סטטיים באפליקציה.",
+  "teams": [
+    {
+      "id": "al-nassr",
+      "name": "אל-נאסר",
+      "athletes": [
+        { "id": "ronaldo", "name": "כריסטיאנו רונאלדו", "maxSpeedKmh": 33.6, "note": "שיאים מדווחים בעבר" },
+        { "id": "mane", "name": "סאדיו מאנה", "maxSpeedKmh": 34.5, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "inter-miami",
+      "name": "אינטר מיאמי",
+      "athletes": [
+        { "id": "messi", "name": "ליונל מסי", "maxSpeedKmh": 32.5, "note": "שיאים מדווחים בעבר" },
+        { "id": "alba", "name": "ג'ורדי אלבה", "maxSpeedKmh": 31.0, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "psg",
+      "name": "פריז סן-ז'רמן",
+      "athletes": [
+        { "id": "dembele", "name": "אוסמן דמבלה", "maxSpeedKmh": 35.8, "note": "הערכה מדווחת" },
+        { "id": "barcola", "name": "ברדלי ברקולה", "maxSpeedKmh": 35.2, "note": "הערכה מדווחת" },
+        { "id": "doue", "name": "דזירה דואה", "maxSpeedKmh": 34.0, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "bayern",
+      "name": "באיירן מינכן",
+      "athletes": [
+        { "id": "musiala", "name": "ג'מאל מוסיאלה", "maxSpeedKmh": 33.4, "note": "הערכה מדווחת" },
+        { "id": "sane", "name": "לרוי סאנה", "maxSpeedKmh": 34.8, "note": "הערכה מדווחת" },
+        { "id": "olise", "name": "מייקל אוליס", "maxSpeedKmh": 34.2, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "inter",
+      "name": "אינטר",
+      "athletes": [
+        { "id": "thuram", "name": "מרקוס תוראם", "maxSpeedKmh": 33.6, "note": "הערכה מדווחת" },
+        { "id": "dumfries", "name": "דנזל דומפריס", "maxSpeedKmh": 34.1, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "philadelphia",
+      "name": "פילדלפיה יוניון",
+      "athletes": [
+        { "id": "baribo", "name": "תאי בריבו", "maxSpeedKmh": 32.6, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "salzburg",
+      "name": "רד בול זלצבורג",
+      "athletes": [
+        { "id": "glouch", "name": "אוסקר גלוך", "maxSpeedKmh": 32.9, "note": "הערכה מדווחת" }
+      ]
+    }
+  ]
+}

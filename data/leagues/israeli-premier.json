@@ -1,0 +1,54 @@
+{
+  "id": "israeli-premier",
+  "name": "ליגת העל",
+  "sport": "football",
+  "disclaimer": "הערכות לצורכי השוואה בלבד לפי דיווחים מקומיים. נתונים סטטיים באפליקציה.",
+  "teams": [
+    {
+      "id": "maccabi-ta",
+      "name": "מכבי ת\"א",
+      "athletes": [
+        { "id": "sabori", "name": "רמזי ספורי", "maxSpeedKmh": 33.2, "note": "הערכה מדווחת" },
+        { "id": "peretz", "name": "דור פרץ", "maxSpeedKmh": 31.8, "note": "הערכה מדווחת" },
+        { "id": "biton", "name": "דן ביטון", "maxSpeedKmh": 31.4, "note": "הערכה מדווחת" },
+        { "id": "zahavi", "name": "ערן זהבי", "maxSpeedKmh": 30.8, "note": "הערכה מדווחת" },
+        { "id": "kanichowsky", "name": "אושר קאנצ'וקובסקי", "maxSpeedKmh": 32.0, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "maccabi-haifa",
+      "name": "מכבי חיפה",
+      "athletes": [
+        { "id": "weissman", "name": "שלו ווייסמן", "maxSpeedKmh": 32.1, "note": "הערכה מדווחת" },
+        { "id": "abu-fani", "name": "מוחמד אבו פאני", "maxSpeedKmh": 31.1, "note": "הערכה מדווחת" },
+        { "id": "david", "name": "דין דוד", "maxSpeedKmh": 31.6, "note": "הערכה מדווחת" },
+        { "id": "refaelov", "name": "ליאור רפאלוב", "maxSpeedKmh": 30.5, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "hapoel-bs",
+      "name": "הפועל ב\"ש",
+      "athletes": [
+        { "id": "haziza", "name": "דולב חזיזה", "maxSpeedKmh": 32.4, "note": "הערכה מדווחת" },
+        { "id": "ganah", "name": "רועי גורדנה", "maxSpeedKmh": 31.0, "note": "הערכה מדווחת" },
+        { "id": "hemed", "name": "טומר חמד", "maxSpeedKmh": 30.2, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "maccabi-nt",
+      "name": "מכבי נתניה",
+      "athletes": [
+        { "id": "shua", "name": "יורם שוע", "maxSpeedKmh": 31.3, "note": "הערכה מדווחת" },
+        { "id": "cohen", "name": "אילון אלמוג", "maxSpeedKmh": 30.9, "note": "הערכה מדווחת" }
+      ]
+    },
+    {
+      "id": "hapoel-ta",
+      "name": "הפועל ת\"א",
+      "athletes": [
+        { "id": "oz-biton", "name": "עוז ביטון", "maxSpeedKmh": 31.5, "note": "הערכה מדווחת" },
+        { "id": "altman", "name": "אומרי אלטמן", "maxSpeedKmh": 30.7, "note": "הערכה מדווחת" }
+      ]
+    }
+  ]
+}
