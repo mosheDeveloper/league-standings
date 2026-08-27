@@ -158,6 +158,12 @@
         <label class="file-lab">ייבוא <input id="import-file" type="file" accept="application/json" /></label>
       </details>
     </section>
+
+    <section class="view" data-view="training">
+      <h1 class="page-title" id="training-title">שיפור ביצועים</h1>
+      <p class="hint" id="training-sub">סרטוני הדרכה. לחצו על נגן כדי לצפות.</p>
+      <div class="training-grid" id="training-grid" dir="ltr" aria-label="סרטוני הדרכה"></div>
+    </section>
   </div>
 
   <div class="toast" id="toast" aria-live="polite"></div>
@@ -178,6 +184,10 @@
     <button type="button" data-view="tables">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5zM5 10h14v4H5zM5 16h14v4H5z" fill="currentColor"/></svg>
       מקצוענים
+    </button>
+    <button type="button" data-view="training">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+      שיפור
     </button>
   </nav>
 
