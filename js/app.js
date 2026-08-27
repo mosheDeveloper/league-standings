@@ -721,7 +721,14 @@ function renderHistory() {
     $("history-list").innerHTML = `<p class="muted">אין ריצות עדיין.</p>`;
     return;
   }
-  $("history-list").innerHTML = h
+  // Keep approved runs near the top; push unapproved (red speeds) lower.
+  const ranked = [...h].sort((a, b) => {
+    const aOk = a.analysis?.valid ? 0 : 1;
+    const bOk = b.analysis?.valid ? 0 : 1;
+    if (aOk !== bOk) return aOk - bOk;
+    return String(b.at || "").localeCompare(String(a.at || ""));
+  });
+  $("history-list").innerHTML = ranked
     .map((e) => {
       const valid = !!e.analysis?.valid;
       const excluded = !!e.excludeFromPr;

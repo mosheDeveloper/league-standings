@@ -40,11 +40,13 @@ export function ascendingPersonalRecords(runs) {
 
 export function formatPrDate(iso) {
   try {
-    return new Date(iso).toLocaleDateString("he-IL", {
-      day: "numeric",
-      month: "short",
-      year: "2-digit",
-    });
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    // Numeric LTR-safe labels for the SVG chart (Hebrew month names reverse in SVG text).
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = String(d.getFullYear()).slice(-2);
+    return `${day}.${month}.${year}`;
   } catch {
     return "";
   }
