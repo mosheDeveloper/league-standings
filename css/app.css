@@ -58,8 +58,11 @@ h1, .page-title {
 
 .label { margin: 22px 0 10px; color: var(--dim); font-size: 13px; font-weight: 700; }
 .label.tight { margin: 14px 0 8px; }
+.hint.tight { margin: 4px 0 0; }
 .filter-stack { margin-bottom: 8px; }
 .filter-row .chips { margin-bottom: 2px; }
+#home-filters .label.tight { margin-top: 10px; }
+#home-filters .filter-row:first-child .label.tight { margin-top: 0; }
 .compare-place {
   margin: 16px 0 4px;
   font-weight: 800;
@@ -85,6 +88,8 @@ h1, .page-title {
   font: inherit;
   font-weight: 700;
   font-size: 13px;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .league-chip.on { background: var(--lime); color: #08140a; }
 
