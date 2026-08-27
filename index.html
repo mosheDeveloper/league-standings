@@ -114,7 +114,30 @@
 
     <section class="view" data-view="tables">
       <h1 class="page-title">ליגות</h1>
-      <p class="hint">בחרו טבלה להשוואה. אפשר גם לערוך את ה־JSON.</p>
+      <p class="hint">השוו את שיא הריצה שלכם לספורטאים — בלי צורך לרוץ עכשיו. ספורט, ליגה וקבוצה הם סינון אופציונלי.</p>
+
+      <div class="filter-stack" id="compare-filters">
+        <div class="filter-row">
+          <p class="label tight">ספורט</p>
+          <div class="chips" id="filter-sport" role="listbox" aria-label="סינון ספורט"></div>
+        </div>
+        <div class="filter-row">
+          <p class="label tight">ליגה</p>
+          <div class="chips" id="filter-league" role="listbox" aria-label="סינון ליגה"></div>
+        </div>
+        <div class="filter-row" id="filter-team-row">
+          <p class="label tight">קבוצה</p>
+          <div class="chips" id="filter-team" role="listbox" aria-label="סינון קבוצה"></div>
+        </div>
+      </div>
+
+      <p class="compare-place" id="compare-place"></p>
+      <p class="hint" id="compare-scope"></p>
+      <ul class="ladder" id="compare-ladder"></ul>
+      <p class="hint" id="compare-disclaimer"></p>
+
+      <h2 class="section-title">טבלאות לריצה</h2>
+      <p class="hint">בחירת ליגה ספציפית למעלה גם מגדירה את ההשוואה בריצה הבאה. אפשר גם לבחור כאן.</p>
       <div id="league-cards"></div>
       <details class="advanced">
         <summary>עריכת JSON</summary>
@@ -129,6 +152,8 @@
       </details>
     </section>
   </div>
+
+  <div class="toast" id="toast" hidden aria-live="polite"></div>
 
   <nav class="tabbar" aria-label="ראשי">
     <button type="button" class="active" data-view="home">

@@ -3,7 +3,10 @@ const KEYS = {
   tableId: "sprint.max.tableId",
   overrides: "sprint.max.overrides",
   name: "sprint.max.displayName",
+  compareFilters: "sprint.max.compareFilters",
 };
+
+const EMPTY_FILTERS = { sport: null, leagueId: null, team: null };
 
 function read(key, fallback) {
   try {
@@ -55,5 +58,21 @@ export const Store = {
     const all = Store.getOverrides();
     delete all[tableId];
     write(KEYS.overrides, all);
+  },
+  getCompareFilters() {
+    const raw = read(KEYS.compareFilters, null);
+    if (!raw || typeof raw !== "object") return { ...EMPTY_FILTERS };
+    return {
+      sport: raw.sport || null,
+      leagueId: raw.leagueId || null,
+      team: raw.team || null,
+    };
+  },
+  setCompareFilters(filters) {
+    write(KEYS.compareFilters, {
+      sport: filters?.sport || null,
+      leagueId: filters?.leagueId || null,
+      team: filters?.team || null,
+    });
   },
 };

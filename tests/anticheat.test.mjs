@@ -117,6 +117,65 @@ test("share caption invites others to use the app", async () => {
   assert.match(payload.text, new RegExp(INVITE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
+test("athlete pool filters by sport, league and team", async () => {
+  const {
+    buildAthletePool,
+    filterOptions,
+    describeFilters,
+    rankAgainstTable,
+  } = await import("../js/compare.js");
+
+  const catalog = [
+    { id: "football-stars", name: "כוכבי כדורגל", sport: "football" },
+    { id: "premier-league", name: "פרמייר ליג", sport: "football" },
+    { id: "nba", name: "כוכבי NBA", sport: "basketball" },
+  ];
+  const tables = {
+    "football-stars": {
+      athletes: [
+        { id: "mbappe", name: "אמבפה", maxSpeedKmh: 38, team: "ריאל מדריד" },
+        { id: "saka", name: "סאקה", maxSpeedKmh: 34.4, team: "ארסנל" },
+      ],
+    },
+    "premier-league": {
+      athletes: [
+        { id: "gordon", name: "גורדון", maxSpeedKmh: 36.6, team: "ניוקאסל" },
+        { id: "saka2", name: "סאקה פל", maxSpeedKmh: 34, team: "ארסנל" },
+      ],
+    },
+    nba: {
+      athletes: [{ id: "fox", name: "פוקס", maxSpeedKmh: 33, team: "סן אנטוניו" }],
+    },
+  };
+
+  const all = buildAthletePool(tables, catalog, {});
+  assert.equal(all.length, 5);
+  assert.equal(all[0].name, "אמבפה");
+
+  const football = buildAthletePool(tables, catalog, { sport: "football" });
+  assert.equal(football.length, 4);
+  assert.ok(football.every((a) => a.sport === "football"));
+
+  const league = buildAthletePool(tables, catalog, { leagueId: "premier-league" });
+  assert.equal(league.length, 2);
+  assert.ok(league.every((a) => a.leagueId === "premier-league"));
+
+  const team = buildAthletePool(tables, catalog, { sport: "football", team: "ארסנל" });
+  assert.equal(team.length, 2);
+  assert.ok(team.every((a) => a.team === "ארסנל"));
+
+  const opts = filterOptions(tables, catalog, { sport: "football" });
+  assert.deepEqual(opts.sports, ["football", "basketball"]);
+  assert.equal(opts.leagues.length, 2);
+  assert.ok(opts.teams.includes("ריאל מדריד"));
+  assert.equal(describeFilters({ sport: "football", team: "ארסנל" }, catalog), "כדורגל · ארסנל");
+
+  const ranked = rankAgainstTable(35, football);
+  assert.equal(ranked.place, 3);
+  assert.equal(ranked.total, 5);
+  assert.equal(ranked.fasterThan.name, "סאקה");
+});
+
 test("records boards rank me locally, globally and among friends", async () => {
   const { buildBoards } = await import("../js/records.js");
   const catalog = {
