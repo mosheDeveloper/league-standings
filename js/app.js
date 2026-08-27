@@ -12,6 +12,7 @@ import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
 import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
 import { buildBoards, bestVerifiedKmh, canSeeFriends } from "./records.js";
+import { ascendingPersonalRecords, formatPrDate } from "./pr-progress.js";
 import {
   getSession,
   saveSession,
@@ -37,6 +38,8 @@ const state = {
   recordsTab: "local",
   authConfig: null,
   compareFilters: { sport: null, leagueId: null, team: null },
+  prPointId: null,
+  prHold: null,
 };
 
 function toast(msg) {
@@ -564,6 +567,7 @@ function stopRun() {
   renderResult();
   showView("result");
   renderProfile();
+  renderHistory();
   renderRecords();
   renderAthleteCompare();
   refreshGpsLock();
@@ -610,20 +614,131 @@ function closeShareSheet() {
   $("share-sheet").hidden = true;
 }
 
+function openPrPointSheet(point) {
+  state.prPointId = point.id;
+  const when = new Date(point.at).toLocaleString("he-IL");
+  $("pr-point-detail").textContent = `${point.maxKmh.toFixed(1)} קמ״ש · ${when}`;
+  $("pr-point-sheet").hidden = false;
+}
+
+function closePrPointSheet() {
+  state.prPointId = null;
+  $("pr-point-sheet").hidden = true;
+}
+
+function clearPrHold() {
+  if (state.prHold?.timer) clearTimeout(state.prHold.timer);
+  state.prHold = null;
+}
+
+function bindPrPointGestures(root) {
+  root.querySelectorAll("[data-pr-id]").forEach((el) => {
+    const id = el.dataset.prId;
+    const openFor = () => {
+      const points = ascendingPersonalRecords(Store.getRuns());
+      const point = points.find((p) => p.id === id);
+      if (point) openPrPointSheet(point);
+    };
+
+    el.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      clearPrHold();
+      state.prHold = {
+        id,
+        x: e.clientX,
+        y: e.clientY,
+        timer: setTimeout(() => {
+          state.prHold = null;
+          if (navigator.vibrate) navigator.vibrate(12);
+          openFor();
+        }, 480),
+      };
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (!state.prHold || state.prHold.id !== id) return;
+      if (Math.hypot(e.clientX - state.prHold.x, e.clientY - state.prHold.y) > 12) clearPrHold();
+    });
+    el.addEventListener("pointerup", clearPrHold);
+    el.addEventListener("pointercancel", clearPrHold);
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openFor();
+    });
+  });
+}
+
+function renderPrChart() {
+  const host = $("pr-chart");
+  if (!host) return;
+  const points = ascendingPersonalRecords(Store.getRuns());
+  if (!points.length) {
+    host.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
+    return;
+  }
+
+  const w = 320;
+  const h = 168;
+  const pad = { t: 28, r: 16, b: 36, l: 16 };
+  const innerW = w - pad.l - pad.r;
+  const innerH = h - pad.t - pad.b;
+  const speeds = points.map((p) => p.maxKmh);
+  const minY = Math.max(0, Math.min(...speeds) - 1.5);
+  const maxY = Math.max(...speeds) + 1.2;
+  const spanY = Math.max(0.5, maxY - minY);
+  const n = points.length;
+
+  const xy = points.map((p, i) => {
+    const x = pad.l + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+    const y = pad.t + innerH - ((p.maxKmh - minY) / spanY) * innerH;
+    return { ...p, x, y };
+  });
+
+  const line = xy.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const axisY = pad.t + innerH;
+
+  host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="שיאים עולים לאורך זמן">
+    <line class="pr-axis" x1="${pad.l}" y1="${axisY}" x2="${w - pad.r}" y2="${axisY}" />
+    <path class="pr-line" d="${line}" />
+    ${xy
+      .map(
+        (p) => `<g class="pr-point" data-pr-id="${p.id}" tabindex="0" role="button"
+          aria-label="שיא ${p.maxKmh.toFixed(1)} קמ״ש ב-${formatPrDate(p.at)}. לחיצה ארוכה למחיקת תיעוד">
+          <circle class="pr-hit" cx="${p.x}" cy="${p.y}" r="18" />
+          <circle class="pr-dot" cx="${p.x}" cy="${p.y}" r="6" />
+          <text class="pr-label-speed" x="${p.x}" y="${p.y - 12}" text-anchor="middle">${p.maxKmh.toFixed(1)}</text>
+          <text class="pr-label-date" x="${p.x}" y="${axisY + 16}" text-anchor="middle">${formatPrDate(p.at)}</text>
+        </g>`
+      )
+      .join("")}
+  </svg>`;
+  bindPrPointGestures(host);
+}
+
 function renderHistory() {
+  renderPrChart();
   const h = Store.getRuns();
   if (!h.length) {
     $("history-list").innerHTML = `<p class="muted">אין ריצות עדיין.</p>`;
     return;
   }
-  $("history-list").innerHTML = h
-    .map(
-      (e) => `<li>
+  // Keep approved runs near the top; push unapproved (red speeds) lower.
+  const ranked = [...h].sort((a, b) => {
+    const aOk = a.analysis?.valid ? 0 : 1;
+    const bOk = b.analysis?.valid ? 0 : 1;
+    if (aOk !== bOk) return aOk - bOk;
+    return String(b.at || "").localeCompare(String(a.at || ""));
+  });
+  $("history-list").innerHTML = ranked
+    .map((e) => {
+      const valid = !!e.analysis?.valid;
+      const excluded = !!e.excludeFromPr;
+      const status = !valid ? "לא אושר" : excluded ? "הוסר מהגרף" : "אושר";
+      return `<li>
         <span>${new Date(e.at).toLocaleString("he-IL")}<br>
-        <small class="muted">${e.tableTitle || ""} · ${e.analysis?.valid ? "אושר" : "לא אושר"}</small></span>
-        <b>${Number(e.maxKmh).toFixed(1)} קמ״ש</b>
-      </li>`
-    )
+        <small class="muted">${e.tableTitle || ""} · ${status}</small></span>
+        <b class="${valid ? "" : "invalid"}">${Number(e.maxKmh).toFixed(1)} קמ״ש</b>
+      </li>`;
+    })
     .join("");
 }
 
@@ -765,6 +880,18 @@ function wireUi() {
     if (e.target.closest("[data-close-sheet]")) closeShareSheet();
     const p = e.target.closest("[data-platform]")?.dataset.platform;
     if (p) shareResult(p);
+  });
+  $("pr-point-sheet")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-pr-point]")) closePrPointSheet();
+  });
+  $("btn-exclude-pr")?.addEventListener("click", () => {
+    if (!state.prPointId) return;
+    Store.excludeFromPr(state.prPointId);
+    closePrPointSheet();
+    renderHistory();
+    renderProfile();
+    renderRecords();
+    toast("תיעוד השיא הוסר מהגרף");
   });
   $("btn-account")?.addEventListener("click", openLogin);
   $("login-sheet")?.addEventListener("click", (e) => {

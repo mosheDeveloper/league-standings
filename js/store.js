@@ -21,6 +21,14 @@ function write(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function ensureRunId(run, index = 0) {
+  if (run?.id) return run;
+  return {
+    ...run,
+    id: `run_${String(run?.at || "x").replace(/\W/g, "")}_${index}`,
+  };
+}
+
 export const Store = {
   getName() {
     return localStorage.getItem(KEYS.name) || "";
@@ -35,16 +43,44 @@ export const Store = {
     localStorage.setItem(KEYS.tableId, id);
   },
   getRuns() {
-    return read(KEYS.runs, []);
+    const runs = read(KEYS.runs, []);
+    let changed = false;
+    const withIds = runs.map((r, i) => {
+      if (r?.id) return r;
+      changed = true;
+      return ensureRunId(r, i);
+    });
+    if (changed) write(KEYS.runs, withIds);
+    return withIds;
   },
   addRun(run) {
     const runs = Store.getRuns();
-    runs.unshift(run);
+    const entry = ensureRunId(
+      {
+        ...run,
+        id: run.id || `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      },
+      0
+    );
+    runs.unshift(entry);
     write(KEYS.runs, runs.slice(0, 80));
     return runs;
   },
+  patchRun(id, patch) {
+    const runs = Store.getRuns();
+    const idx = runs.findIndex((r) => r.id === id);
+    if (idx < 0) return null;
+    runs[idx] = { ...runs[idx], ...patch };
+    write(KEYS.runs, runs);
+    return runs[idx];
+  },
+  excludeFromPr(id) {
+    return Store.patchRun(id, { excludeFromPr: true });
+  },
   verifiedRuns() {
-    return Store.getRuns().filter((r) => r.analysis?.valid && r.mode !== "sim-car");
+    return Store.getRuns().filter(
+      (r) => r.analysis?.valid && r.mode !== "sim-car" && !r.excludeFromPr
+    );
   },
   getOverrides() {
     return read(KEYS.overrides, {});
