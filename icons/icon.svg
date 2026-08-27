@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b6ff3b"/>
+      <stop offset="1" stop-color="#3dffb0"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="#06140b"/>
+  <path d="M48 128c22-38 38-62 74-84" fill="none" stroke="url(#g)" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="132" cy="44" r="14" fill="#b6ff3b"/>
+  <text x="96" y="168" text-anchor="middle" fill="#b6ff3b" font-size="28" font-family="sans-serif" font-weight="700">קמ״ש</text>
+</svg>

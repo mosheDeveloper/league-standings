@@ -1,146 +1,190 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>League Standings</title>
-  <style>
-    :root { --bg:#0b1020; --card:#121933; --muted:#a6b1d5; --text:#ecf1ff; --accent:#6ea2ff; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif; }
-    .wrap { max-width:1200px; margin: 32px auto; padding: 0 16px; }
-    h1 { font-size: clamp(24px, 3vw, 40px); margin: 0 0 16px; }
-    .sub { color: var(--muted); margin-bottom: 24px; }
-    .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
-    .table { width:100%; border-collapse: collapse; font-size: 14px; }
-    .table thead th { text-align: left; padding: 10px 12px; position: sticky; top:0; background: #0f204a; color: #cfe0ff; }
-    .table tbody td { padding: 10px 12px; border-top: 1px solid #26345e; }
-    .table tbody tr:hover { background: #18244a; }
-    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#1b2a59; color:#cfe0ff; font-size:12px; }
-    a.dl { text-decoration: none; color: var(--accent); }
-    footer { color: var(--muted); margin-top: 18px; font-size: 13px; }
-    </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#06140c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="מדדו מהירות ריצה מול ספורטאים. שתפו את השיא." />
+  <title>Sprint Max</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/app.css" />
 </head>
 <body>
-  <div class="wrap">
-    <h1>🏆 League Standings</h1>
-    <div class="sub">Auto-built from <code>games.csv</code>. <span class="pill">Last build: 2025-10-07 18:55 UTC</span></div>
+  <div class="phone" id="shell">
+    <div class="glow" aria-hidden="true"></div>
 
-    <div class="card" style="margin-bottom:16px">
-      <h2 style="margin:0 0 8px">Table</h2>
-      <div style="overflow:auto"><table class="dataframe table">
-  <thead>
-    <tr style="text-align: center;">
-      <th>Team</th>
-      <th>Played</th>
-      <th>Wins</th>
-      <th>Draws</th>
-      <th>Losses</th>
-      <th>GF</th>
-      <th>GA</th>
-      <th>GD</th>
-      <th>Points</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Team A</td>
-      <td>1</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>2</td>
-      <td>1</td>
-      <td>1</td>
-      <td>3</td>
-    </tr>
-    <tr>
-      <td>Team C</td>
-      <td>2</td>
-      <td>0</td>
-      <td>2</td>
-      <td>0</td>
-      <td>3</td>
-      <td>3</td>
-      <td>0</td>
-      <td>2</td>
-    </tr>
-    <tr>
-      <td>Team D</td>
-      <td>1</td>
-      <td>0</td>
-      <td>1</td>
-      <td>0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>0</td>
-      <td>1</td>
-    </tr>
-    <tr>
-      <td>Team B</td>
-      <td>2</td>
-      <td>0</td>
-      <td>1</td>
-      <td>1</td>
-      <td>4</td>
-      <td>5</td>
-      <td>-1</td>
-      <td>1</td>
-    </tr>
-  </tbody>
-</table></div>
-      <p style="margin-top:12px"><a class="dl" href="./standings.csv" download>⬇️ Download standings.csv</a></p>
-    </div>
+    <section class="view active" data-view="home">
+      <header class="top">
+        <div>
+          <p class="hello" id="greet">היי 👋</p>
+          <h1>מוכנים לשיא?</h1>
+        </div>
+        <div class="top-actions">
+          <button class="login-btn" id="btn-account" type="button">כניסה</button>
+          <button class="icon-btn" id="btn-install" hidden aria-label="התקנה">↓</button>
+        </div>
+      </header>
 
-    <div class="card">
-      <h2 style="margin:0 0 8px">Games (all rounds)</h2>
-      <div style="overflow:auto"><table class="dataframe table">
-  <thead>
-    <tr style="text-align: center;">
-      <th>Round</th>
-      <th>Date</th>
-      <th>HomeTeam</th>
-      <th>AwayTeam</th>
-      <th>HomeGoals</th>
-      <th>AwayGoals</th>
-      <th>Stadium</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>1</td>
-      <td>2025-08-01</td>
-      <td>Team A</td>
-      <td>Team B</td>
-      <td>2</td>
-      <td>1</td>
-      <td>Alpha Stadium</td>
-    </tr>
-    <tr>
-      <td>1</td>
-      <td>2025-08-01</td>
-      <td>Team C</td>
-      <td>Team D</td>
-      <td>0</td>
-      <td>0</td>
-      <td>Beta Field</td>
-    </tr>
-    <tr>
-      <td>1</td>
-      <td>2025-08-02</td>
-      <td>Team B</td>
-      <td>Team C</td>
-      <td>3</td>
-      <td>3</td>
-      <td>Gamma Park</td>
-    </tr>
-  </tbody>
-</table></div>
-    </div>
+      <p class="label">עם מי משווים היום</p>
+      <div class="chips" id="league-chips"></div>
+      <select id="table-select" class="sr-only" aria-hidden="true"></select>
 
-    <footer>GF = Goals For, GA = Goals Against, GD = Goal Difference.</footer>
+      <div class="go">
+        <button type="button" class="go-btn" id="btn-start" disabled>
+          <span>התחל</span>
+        </button>
+        <p class="go-hint">לחצו ורוצו. הטלפון בכיס.</p>
+      </div>
+
+      <div class="gps-status" id="gps-status" data-state="checking">
+        <span class="gps-dot" aria-hidden="true"></span>
+        <p id="gps-status-text">בודקים קליטת GPS…</p>
+        <button type="button" class="text-btn" id="btn-gps-retry">בדיקת מיקום</button>
+      </div>
+      <p class="hint" id="profile-box"></p>
+    </section>
+
+    <section class="view view-run" data-view="run">
+      <p class="live-kicker" id="live-status">מדידה</p>
+      <div class="gauge">
+        <div class="speed-ring" id="speed-ring" style="--p:0"></div>
+        <div class="speed-core">
+          <div class="num" id="live-speed">0.0</div>
+          <div class="unit">קמ״ש</div>
+        </div>
+      </div>
+      <div class="stats">
+        <div><em>שיא</em><b id="max-speed">0.0</b></div>
+        <div><em>זמן</em><b id="live-time">00:00</b></div>
+        <div><em>צעדים</em><b id="cadence">—</b></div>
+      </div>
+      <button class="stop" id="btn-stop" disabled>עצירה</button>
+    </section>
+
+    <section class="view" data-view="result">
+      <div class="result-hero">
+        <span class="pill ok" id="result-badge">אושר</span>
+        <div class="num" id="result-speed">0.0</div>
+        <p class="unit">קמ״ש מקסימום</p>
+        <p class="result-copy" id="result-msg"></p>
+        <div class="stats two">
+          <div><em>מקום</em><b id="result-place">—</b></div>
+          <div><em>חיישנים</em><b id="cadence-out">—</b></div>
+        </div>
+      </div>
+
+      <div class="share-block" id="share-block">
+        <p class="share-line" id="share-line"></p>
+        <button class="cta" id="btn-open-share" type="button">שתפו את השיא</button>
+        <img class="story" id="share-preview" alt="כרטיס שיתוף" />
+        <canvas id="share-canvas" hidden></canvas>
+      </div>
+
+      <h2 class="section-title">הסולם</h2>
+      <ul class="ladder" id="rank-list"></ul>
+      <p class="hint" id="table-disclaimer"></p>
+      <button class="ghost-wide" id="btn-new-run" type="button">ריצה חדשה</button>
+    </section>
+
+    <section class="view" data-view="records">
+      <h1 class="page-title">שיאים</h1>
+      <p class="hint" id="records-place">התחברו כדי לראות איפה אתם מול המדינה, העולם והחברים.</p>
+      <div class="seg-tabs" id="records-tabs">
+        <button type="button" data-board="local" class="on">מדינה</button>
+        <button type="button" data-board="global">עולם</button>
+        <button type="button" data-board="friends">חברים</button>
+      </div>
+      <p class="hint" id="records-sub"></p>
+      <ul class="ladder" id="records-list"></ul>
+    </section>
+
+    <section class="view" data-view="history">
+      <h1 class="page-title">הריצות שלי</h1>
+      <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
+      <ul class="ladder" id="history-list"></ul>
+    </section>
+
+    <section class="view" data-view="tables">
+      <h1 class="page-title">ליגות</h1>
+      <p class="hint">בחרו טבלה להשוואה. אפשר גם לערוך את ה־JSON.</p>
+      <div id="league-cards"></div>
+      <details class="advanced">
+        <summary>עריכת JSON</summary>
+        <select id="editor-select"></select>
+        <textarea id="json-editor" spellcheck="false"></textarea>
+        <div class="btn-row">
+          <button class="cta compact" id="btn-save-json" type="button">שמירה</button>
+          <button class="ghost-wide compact" id="btn-reset-json" type="button">איפוס</button>
+          <button class="ghost-wide compact" id="btn-export" type="button">ייצוא</button>
+        </div>
+        <label class="file-lab">ייבוא <input id="import-file" type="file" accept="application/json" /></label>
+      </details>
+    </section>
   </div>
+
+  <nav class="tabbar" aria-label="ראשי">
+    <button type="button" class="active" data-view="home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z" fill="currentColor"/></svg>
+      ריצה
+    </button>
+    <button type="button" data-view="records">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19V9h3v10H6zm5 0V5h3v14h-3zm5 0v-6h3v6h-3z" fill="currentColor"/></svg>
+      שיאים
+    </button>
+    <button type="button" data-view="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v7l4 2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      היסטוריה
+    </button>
+    <button type="button" data-view="tables">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5zM5 10h14v4H5zM5 16h14v4H5z" fill="currentColor"/></svg>
+      ליגות
+    </button>
+  </nav>
+
+  <div class="sheet" id="share-sheet" hidden>
+    <div class="sheet-bg" data-close-sheet></div>
+    <div class="sheet-card" role="dialog" aria-label="שיתוף">
+      <div class="sheet-handle"></div>
+      <h2>איפה לשתף?</h2>
+      <p class="hint">נפתח את הרשת שבחרתם עם הכרטיס והטקסט — כולל הזמנה לחברים למדוד גם.</p>
+      <div class="platforms">
+        <button type="button" data-platform="whatsapp"><i class="wa">W</i>WhatsApp</button>
+        <button type="button" data-platform="instagram"><i class="ig">IG</i>Instagram</button>
+        <button type="button" data-platform="facebook"><i class="fb">f</i>Facebook</button>
+        <button type="button" data-platform="x"><i class="x">𝕏</i>X</button>
+        <button type="button" data-platform="tiktok"><i class="tt">♪</i>TikTok</button>
+        <button type="button" data-platform="telegram"><i class="tg">✈</i>Telegram</button>
+        <button type="button" data-platform="system"><i class="sys">↑</i>עוד אפליקציות</button>
+        <button type="button" data-platform="save"><i class="sv">↓</i>שמירת תמונה</button>
+        <button type="button" data-platform="copy"><i class="cp">⧉</i>העתקת טקסט</button>
+      </div>
+      <button class="ghost-wide" data-close-sheet type="button">ביטול</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="login-sheet" hidden>
+    <div class="sheet-bg" data-close-login></div>
+    <div class="sheet-card" role="dialog" aria-label="התחברות">
+      <div class="sheet-handle"></div>
+      <h2 id="login-title">התחברות</h2>
+      <p class="hint">פייסבוק ואינסטגרם יבקשו לראות את השם שלכם ואת החברים שגם משתמשים ב־Sprint Max — כדי לבנות לוח שיאי חברים. אפשר גם להמשיך כאורח בלי השוואת חברים.</p>
+      <button class="social-login fb" id="btn-login-fb" type="button">התחברות עם Facebook</button>
+      <button class="social-login ig" id="btn-login-ig" type="button">התחברות עם Instagram</button>
+      <button class="social-login guest" id="btn-login-guest" type="button">המשך כאורח</button>
+      <label class="field-lab" for="login-name">שם לתצוגה</label>
+      <input id="login-name" maxlength="24" placeholder="למשל: משה" />
+      <button class="text-btn" id="btn-logout" type="button" hidden>התנתקות</button>
+      <button class="ghost-wide" data-close-login type="button">סגירה</button>
+    </div>
+  </div>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>

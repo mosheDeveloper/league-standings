@@ -1,0 +1,24 @@
+{
+  "tables": [
+    {
+      "id": "football-stars",
+      "file": "football-stars.json",
+      "title": "כוכבי כדורגל"
+    },
+    {
+      "id": "premier-league",
+      "file": "premier-league.json",
+      "title": "פרמייר ליג (נבחרים)"
+    },
+    {
+      "id": "athletics-sprinters",
+      "file": "athletics-sprinters.json",
+      "title": "אתלטיקה — ספרינטרים"
+    },
+    {
+      "id": "israeli-football",
+      "file": "israeli-football.json",
+      "title": "כדורגל ישראלי"
+    },
+  ]
+}

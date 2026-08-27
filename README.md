@@ -1,40 +1,55 @@
-# Static League Standings (CSV → GitHub Pages)
+# Sprint Max — מדידת מהירות ריצה במובייל
 
-This repository builds a static website that shows your league **standings** and **all games**
-from a simple CSV file (`games.csv`). The site is automatically deployed to **GitHub Pages**
-on every push to `main` and once per day via a scheduled workflow.
+אפליקציית PWA (עובדת כמו אפליקציה בטלפון: אפשר להוסיף למסך הבית) למדידה חוזרת של **מהירות הריצה המקסימלית** בזמן שהטלפון עליכם.
 
-## Files
-- `games.csv` — your editable "database" of matches (columns below)
-- `build_site.py` — reads `games.csv` and outputs `dist/index.html` + `dist/standings.csv`
-- `requirements.txt` — Python dependencies
-- `.github/workflows/deploy.yml` — CI that builds and deploys the site to Pages
+## מה היא עושה
+- מודדת מהירות חיה + **שיא הריצה** מ־GPS.
+- מזהה רמאות מסוג נסיעה ברכב: מקצב צעדים, bounce, ו־**tilt** של הטלפון.
+- אחרי כמה ריצות מאושרות בונה **פרופיל אישי** — קפיצה למהירות רכב בלי טלטול ריצה תיפסל.
+- בסוף הריצה מציבה אתכם מול טבלת ספורטאים שבחרתם.
+- שיתוף: `אתה יותר מהיר מ-[שם]. מהירות הריצה המקסימאלית היא: XXX`.
+- התחברות בפייסבוק / אינסטגרם (הרשאת חברים), או **המשך כאורח**. עמוד **שיאים**: מדינה, עולם, חברים (חברים דורשים חיבור לרשתות).
 
-## CSV format (`games.csv`)
-Columns (case-sensitive):
-- Round (1..15)
-- GameInRound (1..8)
-- Date (optional)
-- HomeTeam (required)
-- AwayTeam (required)
-- HomeGoals (required integer)
-- AwayGoals (required integer)
-- Stadium (optional)
+## התחברות Meta
+ב־[`data/auth.json`](data/auth.json) הזינו `facebookAppId` מאפליקציית Meta, עם הרשאות `public_profile` ו־`user_friends`.
+`user_friends` מחזיר רק חברים שגם הם התחברו ל־Sprint Max (דרישת פייסבוק).
+בלי App ID כפתורי מטא נופלים להתחברות מקומית עם חברים לדוגמה. **אורח** נכנס בלי רשימת חברים, ובמסך שיאי חברים מופיעה הודעה שצריך להתחבר כדי להשוות. קהילת השיאים ב־[`data/records.json`](data/records.json).
 
-You can leave future games blank; only rows with both team names and numeric goal values are counted.
+## טבלאות JSON לעריכה
+כל הטבלאות בתיקיית [`data/`](data/):
 
-## Local build (optional)
-```bash
-pip install -r requirements.txt
-python build_site.py games.csv
-# open dist/index.html in your browser
+| קובץ | תוכן |
+|---|---|
+| `data/tables.json` | קטלוג הטבלאות |
+| `data/football-stars.json` | כוכבי כדורגל |
+| `data/premier-league.json` | פרמייר ליג |
+| `data/israeli-football.json` | כדורגל ישראלי |
+| `data/athletics.json` | ספרינטרים |
+| `data/nba.json` | כוכבי NBA |
+
+מבנה ספורטאי:
+
+```json
+{ "id": "mbappe", "name": "קיליאן מבאפה", "team": "ריאל מדריד", "maxSpeedKmh": 38.0 }
 ```
 
-## Deploy to GitHub Pages
-1. Create a new **public** GitHub repo (or private with Pages enabled for your plan).
-2. Push these files to a `main` branch.
-3. In the repo: **Settings → Pages** →
-   - Source: **GitHub Actions** (no branch selection needed with this workflow).
-4. The workflow will run and publish to Pages. The URL appears under **Deployments → github-pages**.
+המהירויות הן הערכות לפי פרסומים ציבוריים — עדכנו אותן בקלות. באפליקציה יש גם עורך JSON (נשמר במכשיר כשכבה מעל הקובץ).
 
-Every time you edit `games.csv` and push, the site rebuilds automa
+## הרצה מקומית
+```bash
+python3 -m http.server 4173
+# פתיחה: http://localhost:4173
+```
+
+בטלפון עם GPS דולק: כפתור ההתחלה נפתח רק אחרי נעילת מיקום. בלי קליטה תופיע התרעה לשפר מיקום. נסיעה ברכב נחסמת אם הטלפון כמעט לא זז.
+
+## Tests
+```bash
+npm test
+```
+
+## Deploy
+Push to `main` publishes the PWA to GitHub Pages via `.github/workflows/deploy.yml` (runs unit tests first). Enable **Settings → Pages → GitHub Actions**.
+
+## English
+Mobile-first PWA: GPS + motion running speed, max km/h, GPS-lock required to start, anti-cheat (still phone / no tilt = car), editable JSON athlete tables, Hebrew RTL share.

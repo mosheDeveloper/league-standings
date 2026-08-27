@@ -1,0 +1,35 @@
+{
+  "defaultCountry": "IL",
+  "countries": {
+    "IL": "ישראל",
+    "US": "ארה״ב",
+    "GB": "בריטניה",
+    "FR": "צרפת",
+    "DE": "גרמניה",
+    "ES": "ספרד",
+    "IT": "איטליה",
+    "BR": "ברזיל",
+    "AR": "ארגנטינה",
+    "NL": "הולנד"
+  },
+  "users": [
+    { "id": "g-bolt", "name": "נועה ברק", "country": "IL", "maxSpeedKmh": 33.4, "facebookId": null },
+    { "id": "g-dan", "name": "דניאל לוי", "country": "IL", "maxSpeedKmh": 31.8, "facebookId": null },
+    { "id": "g-maya", "name": "מאיה כהן", "country": "IL", "maxSpeedKmh": 30.2, "facebookId": null },
+    { "id": "g-ori", "name": "אורי שמש", "country": "IL", "maxSpeedKmh": 28.6, "facebookId": null },
+    { "id": "g-tal", "name": "טל אברהמי", "country": "IL", "maxSpeedKmh": 27.1, "facebookId": null },
+    { "id": "g-yael", "name": "יעל מזרחי", "country": "IL", "maxSpeedKmh": 25.4, "facebookId": null },
+    { "id": "g-us1", "name": "Jordan Blake", "country": "US", "maxSpeedKmh": 34.1, "facebookId": null },
+    { "id": "g-us2", "name": "Alex Rivera", "country": "US", "maxSpeedKmh": 32.0, "facebookId": null },
+    { "id": "g-gb1", "name": "Sam Wright", "country": "GB", "maxSpeedKmh": 31.2, "facebookId": null },
+    { "id": "g-fr1", "name": "Camille Durand", "country": "FR", "maxSpeedKmh": 30.8, "facebookId": null },
+    { "id": "g-br1", "name": "Lucas Souza", "country": "BR", "maxSpeedKmh": 33.0, "facebookId": null },
+    { "id": "g-de1", "name": "Jonas Weber", "country": "DE", "maxSpeedKmh": 29.4, "facebookId": null }
+  ],
+  "sampleFriends": [
+    { "id": "fb-aya", "name": "איה נחום", "country": "IL", "maxSpeedKmh": 29.9 },
+    { "id": "fb-ron", "name": "רון חדד", "country": "IL", "maxSpeedKmh": 31.1 },
+    { "id": "fb-lihi", "name": "ליהי פרץ", "country": "IL", "maxSpeedKmh": 26.8 },
+    { "id": "ig-tom", "name": "תום אזולאי", "country": "IL", "maxSpeedKmh": 28.2 }
+  ]
+}
