@@ -487,7 +487,7 @@ function onLive(update) {
   const ring = $("speed-ring");
   if (ring) ring.style.setProperty("--p", String(Math.min(1, (update.speedKmh || 0) / 36)));
   if (update.gpsError) {
-    $("live-status").textContent = "אבד אות GPS — שבו לאוויר הפתוח";
+    $("live-status").textContent = "אבד אות GPS — חזרו לאוויר הפתוח";
   } else if (update.gpsAccuracy != null) {
     $("live-status").textContent = `מיקום חי · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
   }
