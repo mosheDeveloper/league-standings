@@ -29,7 +29,7 @@ export const Store = {
     localStorage.setItem(KEYS.name, name.trim());
   },
   getTableId() {
-    return localStorage.getItem(KEYS.tableId) || "football-stars";
+    return localStorage.getItem(KEYS.tableId) || "premier-league";
   },
   setTableId(id) {
     localStorage.setItem(KEYS.tableId, id);

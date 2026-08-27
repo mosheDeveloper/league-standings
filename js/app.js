@@ -5,6 +5,8 @@ import {
   filterOptions,
   describeFilters,
   sportLabel,
+  flattenCatalog,
+  normalizeLeagueTable,
 } from "./compare.js";
 import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
@@ -25,7 +27,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   catalog: null,
   tables: {},
-  selectedId: "football-stars",
+  selectedId: "premier-league",
   mode: "run",
   tracker: null,
   gpsOk: false,
@@ -178,17 +180,20 @@ async function onMetaLogin(provider) {
 }
 
 async function loadCatalog() {
-  const res = await fetch("./data/tables.json", { cache: "no-store" });
-  if (!res.ok) throw new Error("לא ניתן לטעון טבלאות");
-  return res.json();
+  const res = await fetch("./data/catalog.json", { cache: "no-store" });
+  if (!res.ok) throw new Error("לא ניתן לטעון קטלוג מקצוענים");
+  const catalog = await res.json();
+  const tables = flattenCatalog(catalog);
+  if (!tables.length) throw new Error("קטלוג ריק");
+  return { ...catalog, tables };
 }
 
 async function fetchTable(meta) {
   const overrides = Store.getOverrides();
-  if (overrides[meta.id]) return overrides[meta.id];
+  if (overrides[meta.id]) return normalizeLeagueTable(overrides[meta.id]);
   const res = await fetch(`./${meta.file}`.replace(/^\.\//, "./"), { cache: "no-store" });
   if (!res.ok) throw new Error("טבלה חסרה");
-  return res.json();
+  return normalizeLeagueTable(await res.json());
 }
 
 async function ensureTable(id) {
@@ -219,7 +224,6 @@ function fillSelects() {
 
 function renderLeagues() {
   renderFilterChips();
-  renderLeaguesCardsOnly();
   renderAthleteCompare();
 }
 
@@ -244,6 +248,10 @@ function sanitizeCompareFilters(filters) {
   if (next.sport && !opts.sports.includes(next.sport)) next.sport = null;
   if (next.leagueId && !opts.leagues.some((l) => l.id === next.leagueId)) {
     next.leagueId = null;
+  }
+  // Auto-select sole league for sports like athletics → כוכבים
+  if (next.sport && !next.leagueId && opts.leagues.length === 1) {
+    next.leagueId = opts.leagues[0].id;
   }
   const teamOpts = filterOptions(state.tables, state.catalog?.tables || [], {
     sport: next.sport,
@@ -270,46 +278,37 @@ function setCompareFilters(partial, { syncRunTable = true } = {}) {
   }
   fillSelects();
   renderFilterChips();
-  renderLeaguesCardsOnly();
   renderAthleteCompare();
 }
 
-function renderLeaguesCardsOnly() {
-  const host = $("league-cards");
-  if (!host || !state.catalog) return;
-  host.innerHTML = state.catalog.tables
-    .map((t) => {
-      const table = state.tables[t.id];
-      const n = table?.athletes?.length ?? "—";
-      return `<button type="button" class="league-card ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">
-        <strong>${sportMark(t.sport)} ${t.name || t.title}</strong>
-        <small>${t.blurb || ""} · ${n} ספורטאים</small>
-      </button>`;
-    })
-    .join("");
-}
-
-function paintFilterRow(sportHostId, leagueHostId, teamRowId, teamHostId) {
-  if (!state.catalog || !$(sportHostId)) return;
+function paintFilterRow() {
+  if (!state.catalog || !$("filter-sport")) return null;
   const filters = sanitizeCompareFilters(state.compareFilters);
   state.compareFilters = filters;
   const opts = filterOptions(state.tables, state.catalog.tables, filters);
 
-  $(sportHostId).innerHTML =
-    chipHtml("הכל", !filters.sport, 'data-filter="sport" data-value=""') +
-    opts.sports
-      .map((s) =>
-        chipHtml(
-          `${sportMark(s)} ${sportLabel(s)}`,
-          filters.sport === s,
-          `data-filter="sport" data-value="${s}"`
-        )
+  $("filter-sport").innerHTML = opts.sports
+    .map((s) =>
+      chipHtml(
+        `${sportMark(s)} ${sportLabel(s)}`,
+        filters.sport === s,
+        `data-filter="sport" data-value="${s}"`
       )
-      .join("");
+    )
+    .join("");
 
-  $(leagueHostId).innerHTML =
-    chipHtml("הכל", !filters.leagueId, 'data-filter="league" data-value=""') +
-    opts.leagues
+  const leagueRow = $("filter-league-row");
+  const leagueLabel = $("filter-league-label");
+  if (!filters.sport) {
+    if (leagueRow) leagueRow.hidden = true;
+  } else {
+    if (leagueRow) leagueRow.hidden = false;
+    const isStars = opts.leagues.every((l) => {
+      const meta = state.catalog.tables.find((t) => t.id === l.id);
+      return meta?.kind === "stars" || meta?.hideTeams;
+    });
+    if (leagueLabel) leagueLabel.textContent = isStars ? "קטגוריה" : "ליגה";
+    $("filter-league").innerHTML = opts.leagues
       .map((l) =>
         chipHtml(
           l.name,
@@ -318,14 +317,15 @@ function paintFilterRow(sportHostId, leagueHostId, teamRowId, teamHostId) {
         )
       )
       .join("");
+  }
 
-  const teamRow = $(teamRowId);
-  if (!opts.teams.length) {
+  const teamRow = $("filter-team-row");
+  if (!filters.sport || !filters.leagueId || opts.hideTeams || !opts.teams.length) {
     if (teamRow) teamRow.hidden = true;
   } else if (teamRow) {
     teamRow.hidden = false;
-    $(teamHostId).innerHTML =
-      chipHtml("הכל", !filters.team, 'data-filter="team" data-value=""') +
+    $("filter-team").innerHTML =
+      chipHtml("כל הקבוצות", !filters.team, 'data-filter="team" data-value=""') +
       opts.teams
         .map((team) =>
           chipHtml(team, filters.team === team, `data-filter="team" data-value="${escAttr(team)}"`)
@@ -337,24 +337,7 @@ function paintFilterRow(sportHostId, leagueHostId, teamRowId, teamHostId) {
 }
 
 function renderFilterChips() {
-  const painted = paintFilterRow(
-    "filter-sport",
-    "filter-league",
-    "filter-team-row",
-    "filter-team"
-  );
-  paintFilterRow(
-    "home-filter-sport",
-    "home-filter-league",
-    "home-filter-team-row",
-    "home-filter-team"
-  );
-  const scopeEl = $("home-compare-scope");
-  if (scopeEl && painted) {
-    const athletes = buildAthletePool(state.tables, state.catalog.tables, painted.filters);
-    const scope = describeFilters(painted.filters, state.catalog.tables);
-    scopeEl.textContent = `${scope} · ${athletes.length} ספורטאים`;
-  }
+  paintFilterRow();
 }
 
 function activeComparisonTable() {
@@ -384,6 +367,18 @@ function renderAthleteCompare() {
   const filters = sanitizeCompareFilters(state.compareFilters);
   state.compareFilters = filters;
 
+  if (!filters.sport) {
+    if ($("compare-scope")) $("compare-scope").textContent = "בחרו ענף ספורט כדי לראות מקצוענים";
+    if ($("compare-place")) $("compare-place").textContent = "";
+    if ($("compare-ladder")) $("compare-ladder").innerHTML = "";
+    if ($("compare-disclaimer")) {
+      $("compare-disclaimer").textContent =
+        state.catalog.disclaimer ||
+        "כל הנתונים שמורים מקומית ב־JSON — בלי תלות במקור חיצוני.";
+    }
+    return;
+  }
+
   const athletes = buildAthletePool(state.tables, state.catalog.tables, filters);
   const scope = describeFilters(filters, state.catalog.tables);
   if ($("compare-scope")) {
@@ -394,7 +389,7 @@ function renderAthleteCompare() {
   if (!$("compare-place") || !$("compare-ladder")) return;
 
   if (!athletes.length) {
-    $("compare-place").textContent = "אין ספורטאים בסינון הזה — נסו להרחיב.";
+    $("compare-place").textContent = "אין ספורטאים בסינון הזה — נסו ליגה או קבוצה אחרת.";
     $("compare-ladder").innerHTML = "";
     if ($("compare-disclaimer")) $("compare-disclaimer").textContent = "";
     return;
@@ -415,7 +410,7 @@ function renderAthleteCompare() {
     );
     $("compare-ladder").innerHTML = items.join("");
   } else {
-    $("compare-place").textContent = "עדיין אין שיא מאושר — הסולם מציג את הספורטאים. אחרי ריצה תקינה תופיעו כאן.";
+    $("compare-place").textContent = "עדיין אין שיא מאושר — הסולם מציג את המקצוענים. אחרי ריצה תקינה תופיעו כאן.";
     $("compare-ladder").innerHTML = athletes
       .map((ath, i) => {
         const meta = [ath.team, ath.leagueName].filter(Boolean).join(" · ");
@@ -429,7 +424,8 @@ function renderAthleteCompare() {
       $("compare-disclaimer").textContent = state.tables[filters.leagueId]?.disclaimer || "";
     } else {
       $("compare-disclaimer").textContent =
-        "מהירויות משוערות לפי הטבלאות הכלולות — להשוואה בלבד, לא מדידה רשמית אחידה.";
+        state.catalog.disclaimer ||
+        "מהירויות משוערות לפי מסד JSON מקומי — להשוואה בלבד.";
     }
   }
 }
@@ -646,13 +642,15 @@ function saveEditor() {
     toast("JSON לא תקין");
     return;
   }
-  if (!Array.isArray(parsed.athletes)) {
-    toast("חסר מערך athletes");
+  parsed = normalizeLeagueTable(parsed);
+  if (!Array.isArray(parsed.athletes) || !parsed.athletes.length) {
+    toast("חסרים ספורטאים (teams או athletes)");
     return;
   }
   parsed.id = parsed.id || id;
   Store.setOverride(id, parsed);
   state.tables[id] = parsed;
+  renderAthleteCompare();
   toast("הטבלה נשמרה במכשיר");
 }
 
@@ -710,12 +708,7 @@ async function pickTable(id) {
 }
 
 function wireUi() {
-  $("league-cards")?.addEventListener("click", (e) => {
-    const id = e.target.closest("[data-id]")?.dataset.id;
-    if (id) pickTable(id);
-  });
   $("compare-filters")?.addEventListener("click", onCompareFilterClick);
-  $("home-filters")?.addEventListener("click", onCompareFilterClick);
   $("table-select")?.addEventListener("change", (e) => pickTable(e.target.value));
   $("btn-gps-retry")?.addEventListener("click", () => refreshGpsLock());
   $("btn-start")?.addEventListener("click", startRun);
@@ -728,7 +721,6 @@ function wireUi() {
       if (v === "home") {
         renderProfile();
         greet();
-        renderFilterChips();
       }
       if (v === "records") renderRecords();
       if (v === "tables") {
@@ -820,6 +812,14 @@ async function init() {
     state.selectedId = state.catalog.tables[0].id;
   }
   state.compareFilters = sanitizeCompareFilters(Store.getCompareFilters());
+  if (!state.compareFilters.sport) {
+    const meta = state.catalog.tables.find((t) => t.id === state.selectedId);
+    state.compareFilters = sanitizeCompareFilters({
+      sport: meta?.sport || "football",
+      leagueId: state.selectedId,
+      team: null,
+    });
+  }
   Store.setCompareFilters(state.compareFilters);
   fillSelects();
   renderFilterChips();
