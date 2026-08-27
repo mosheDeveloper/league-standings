@@ -149,4 +149,65 @@ test("records boards rank me locally, globally and among friends", async () => {
 
   const loggedOut = buildBoards({ catalog, session: null, myKmh: 28 });
   assert.equal(loggedOut.canSeeFriends, false);
+
+  const apiEmpty = buildBoards({
+    catalog,
+    session: {
+      id: "me2",
+      name: "משה",
+      country: "IL",
+      provider: "facebook",
+      friendsFromApi: true,
+      friends: [],
+    },
+    myKmh: 32,
+  });
+  assert.equal(apiEmpty.friends.sorted.filter((u) => !u.me).length, 0);
+});
+
+test("meta auth helpers resolve app id and error copy", async () => {
+  const { resolveMetaAppId, isMetaConfigured, metaErrorMessage } = await import("../js/auth.js");
+  assert.equal(isMetaConfigured({ facebookAppId: "" }), false);
+  assert.equal(isMetaConfigured({ facebookAppId: "123" }), true);
+  assert.equal(resolveMetaAppId({ facebookAppId: "999", instagramAppId: "1" }), "999");
+  assert.match(metaErrorMessage(new Error("missing-app-id")), /App ID/);
+});
+
+test("community store upserts max speed and enriches friends", async () => {
+  const {
+    upsertLocalScore,
+    enrichFriendsWithScores,
+    readLocalCommunity,
+  } = await import("../js/community.js");
+  // jsdom-less: stub localStorage if missing
+  if (typeof globalThis.localStorage === "undefined") {
+    const mem = new Map();
+    globalThis.localStorage = {
+      getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+      setItem: (k, v) => mem.set(k, String(v)),
+      removeItem: (k) => mem.delete(k),
+    };
+  }
+  localStorage.removeItem("sprint.max.community");
+  upsertLocalScore({ facebookId: "10", name: "Dana", maxSpeedKmh: 28, country: "IL" });
+  upsertLocalScore({ facebookId: "10", name: "Dana", maxSpeedKmh: 31, country: "IL" });
+  const map = readLocalCommunity();
+  assert.equal(map["10"].maxSpeedKmh, 31);
+  const friends = enrichFriendsWithScores(
+    [
+      { id: "10", name: "Dana" },
+      { id: "11", name: "NoScore" },
+    ],
+    Object.values(map)
+  );
+  assert.equal(friends[0].maxSpeedKmh, 31);
+  assert.equal(friends[1].maxSpeedKmh, 0);
+});
+
+test("facebook share path requires config for publish helper", async () => {
+  const { publishToFacebook } = await import("../js/share.js");
+  await assert.rejects(
+    () => publishToFacebook({ text: "t", url: "https://example.com", line: "l" }, { facebookAppId: "" }),
+    /missing-app-id/
+  );
 });

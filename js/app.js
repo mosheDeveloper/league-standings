@@ -7,12 +7,22 @@ import { buildBoards, bestVerifiedKmh, canSeeFriends } from "./records.js";
 import {
   getSession,
   saveSession,
-  clearSession,
   loadAuthConfig,
   loginWithMeta,
-  localConsentSession,
   guestSession,
+  logoutMeta,
+  restoreMetaSession,
+  isMetaConfigured,
+  metaErrorMessage,
+  getAppIdOverride,
+  setAppIdOverride,
+  resolveMetaAppId,
 } from "./auth.js";
+import {
+  publishScore,
+  fetchScoresForFriends,
+  enrichFriendsWithScores,
+} from "./community.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -66,6 +76,55 @@ function renderAccountBtn() {
   const title = $("login-title");
   if (title) title.textContent = state.session ? "החשבון שלי" : "התחברות";
   if (state.session?.name && $("login-name")) $("login-name").value = state.session.name;
+  renderMetaSetup();
+}
+
+function renderMetaSetup() {
+  const setup = $("meta-setup");
+  const input = $("meta-app-id");
+  const status = $("meta-setup-status");
+  if (!setup || !input || !status) return;
+  const configured = isMetaConfigured(state.authConfig);
+  const appId = resolveMetaAppId(state.authConfig || {});
+  if (!input.value) input.value = getAppIdOverride() || appId || "";
+  setup.hidden = false;
+  if (configured) {
+    status.textContent = `Meta מחובר להגדרות · App ID …${appId.slice(-4)}`;
+    status.dataset.state = "ok";
+  } else {
+    status.textContent = "חסר App ID — בלי זה אין התחברות אמיתית ואין פרסום לפיד Facebook.";
+    status.dataset.state = "warn";
+  }
+  const fb = $("btn-login-fb");
+  const ig = $("btn-login-ig");
+  if (fb) fb.disabled = !configured;
+  if (ig) ig.disabled = !configured;
+}
+
+async function refreshFriendsScores(session) {
+  if (!session?.friendsFromApi || !session.friends?.length) return session;
+  const scores = await fetchScoresForFriends(
+    session.friends.map((f) => f.id),
+    state.authConfig?.communityEndpoint
+  );
+  session.friends = enrichFriendsWithScores(session.friends, scores);
+  return session;
+}
+
+async function syncMyScore(session = state.session) {
+  if (!session?.facebookId || session.guest || session.local) return;
+  const kmh = myBest();
+  if (!(kmh > 0)) return;
+  await publishScore(
+    {
+      facebookId: session.facebookId,
+      name: session.name,
+      avatar: session.avatar,
+      country: session.country,
+      maxSpeedKmh: kmh,
+    },
+    state.authConfig?.communityEndpoint
+  );
 }
 
 function myBest() {
@@ -132,37 +191,52 @@ function closeLogin() {
   $("login-sheet").hidden = true;
 }
 
-async function finishLogin(session) {
-  state.session = session;
-  saveSession(session);
-  Store.setName(session.name);
+async function finishLogin(session, { quiet } = {}) {
+  let next = session;
+  if (next?.friendsFromApi) {
+    next = await refreshFriendsScores(next);
+  }
+  state.session = next;
+  saveSession(next);
+  Store.setName(next.name);
   greet();
   renderAccountBtn();
   renderRecords();
   closeLogin();
-  if (session.guest) {
+  await syncMyScore(next);
+  if (quiet) return;
+  if (next.guest) {
     toast("נכנסתם כאורח. שיאי חברים זמינים אחרי חיבור לפייסבוק או אינסטגרם.");
+  } else if (next.friendsFromApi) {
+    const n = next.friends?.length || 0;
+    toast(n ? `מחוברים · נשאבו ${n} חברים מ־Meta` : "מחוברים · פרופיל נשאב מ־Meta (אין עדיין חברים באפליקציה)");
   } else {
-    toast(session.friendsFromApi ? "מחוברים · נטענו חברים" : "מחוברים");
+    toast("מחוברים");
   }
 }
 
 async function onMetaLogin(provider) {
+  if (!isMetaConfigured(state.authConfig)) {
+    toast(metaErrorMessage(new Error("missing-app-id")));
+    $("meta-app-id")?.focus();
+    return;
+  }
+  const fb = $("btn-login-fb");
+  const ig = $("btn-login-ig");
+  if (fb) fb.disabled = true;
+  if (ig) ig.disabled = true;
   try {
     const session = await loginWithMeta(provider, state.authConfig);
     await finishLogin(session);
   } catch (err) {
-    if (err?.message === "cancelled") return;
-    const name = $("login-name").value || Store.getName();
-    const session = localConsentSession(provider, name);
-    session.friends = (state.recordsCatalog?.sampleFriends || []).map((f) => ({
-      id: f.id,
-      name: f.name,
-      country: f.country,
-      maxSpeedKmh: f.maxSpeedKmh,
-    }));
-    await finishLogin(session);
-    toast("Meta לא הוגדר עדיין — התחברות מקומית. הזינו App ID ב-data/auth.json לחיבור אמיתי.");
+    if (err?.message === "cancelled") {
+      toast("ההתחברות בוטלה");
+      return;
+    }
+    console.error(err);
+    toast(metaErrorMessage(err));
+  } finally {
+    renderMetaSetup();
   }
 }
 
@@ -342,6 +416,17 @@ function stopRun() {
   renderProfile();
   renderRecords();
   refreshGpsLock();
+  if (analysis.valid) {
+    syncMyScore().then(() => {
+      if (state.session?.friendsFromApi) {
+        refreshFriendsScores(state.session).then((s) => {
+          state.session = s;
+          saveSession(s);
+          renderRecords();
+        });
+      }
+    });
+  }
 }
 
 function renderResult() {
@@ -435,15 +520,24 @@ async function shareResult(platform) {
     canvas: $("share-canvas"),
   };
   try {
-    const how = await shareToPlatform(platform, payload);
+    const how = await shareToPlatform(platform, payload, state.authConfig || {});
     closeShareSheet();
     if (how === "aborted") return;
-    if (how === "copied") toast("הטקסט הועתק");
+    if (how === "facebook-published") toast("נפתח דיאלוג הפרסום של Facebook — אשרו כדי לפרסם בפיד");
+    else if (how === "facebook-sharer") toast("נפתח Facebook לשיתוף הקישור");
+    else if (how === "messenger-published") toast("נפתח Messenger לשליחה");
+    else if (how === "copied") toast("הטקסט הועתק");
     else if (how === "saved" || how === "download-copy")
-      toast("הכרטיס נשמר — הדביקו בסטורי עם הטקסט שהועתק");
+      toast("הכרטיס נשמר — פתחו Instagram/TikTok והדביקו בסטורי");
+    else if (how === "files") toast("נפתח שיתוף המערכת עם התמונה");
     else toast("נפתח לשיתוף");
   } catch (e) {
     if (e?.name === "AbortError") return;
+    if (e?.message === "missing-app-id") {
+      toast("לפרסום בפייסבוק צריך App ID של Meta — הזינו במסך ההתחברות");
+      openLogin();
+      return;
+    }
     toast("לא ניתן לשתף מכאן — נסו שמירת תמונה");
   }
 }
@@ -483,10 +577,23 @@ async function init() {
     state.recordsCatalog = { users: [], sampleFriends: [], countries: {}, defaultCountry: "IL" };
   }
   state.session = getSession();
+  if (state.session && !state.session.guest && !state.session.local && isMetaConfigured(state.authConfig)) {
+    try {
+      const restored = await restoreMetaSession(state.authConfig, state.session.provider || "facebook");
+      if (restored) {
+        restored.country = state.session.country || restored.country;
+        state.session = await refreshFriendsScores(restored);
+        saveSession(state.session);
+      }
+    } catch (err) {
+      console.warn("meta restore failed", err);
+    }
+  }
   greet();
   renderAccountBtn();
   renderRecords();
   refreshGpsLock();
+  if (state.session?.facebookId) syncMyScore();
 
   async function pickTable(id) {
     state.selectedId = id;
@@ -571,8 +678,14 @@ async function init() {
     const name = $("login-name").value || Store.getName();
     await finishLogin(guestSession(name));
   });
-  $("btn-logout").addEventListener("click", () => {
-    clearSession();
+  $("btn-save-meta-app")?.addEventListener("click", async () => {
+    const id = setAppIdOverride($("meta-app-id")?.value || "");
+    state.authConfig = await loadAuthConfig();
+    renderMetaSetup();
+    toast(id ? "App ID נשמר במכשיר" : "App ID נמחק — משתמשים ב-auth.json");
+  });
+  $("btn-logout").addEventListener("click", async () => {
+    await logoutMeta(state.authConfig || {});
     state.session = null;
     greet();
     renderAccountBtn();

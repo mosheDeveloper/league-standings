@@ -1,4 +1,5 @@
 import { shareMessage } from "./compare.js";
+import { ensureMetaSdk, resolveMetaAppId, isMetaConfigured } from "./auth.js";
 
 export const INVITE =
   "רוצים לדעת אם אתם יותר מהירים מהשחקנים שאתם אוהבים? מדדו גם אתם ב־Sprint Max.";
@@ -55,11 +56,81 @@ function downloadCard(canvas) {
   a.click();
 }
 
+function fbUi(opts) {
+  return new Promise((resolve, reject) => {
+    if (!window.FB?.ui) {
+      reject(new Error("sdk-missing"));
+      return;
+    }
+    window.FB.ui(opts, (res) => {
+      // User closing the dialog without posting often yields undefined / empty
+      if (res && res.error_message) {
+        reject(new Error(res.error_message));
+        return;
+      }
+      resolve(res || { cancelled: true });
+    });
+  });
+}
+
 /**
- * Share to a chosen network. Instagram / TikTok have no public web composer,
- * so we send the story image via the system share sheet (or download + caption).
+ * Publish to the user's Facebook feed via the official Share Dialog.
+ * Requires Meta App ID + Facebook JS SDK. User confirms the post in Meta UI.
  */
-export async function shareToPlatform(platform, payload) {
+export async function publishToFacebook(payload, config) {
+  if (!isMetaConfigured(config)) throw new Error("missing-app-id");
+  await ensureMetaSdk(config);
+  const { text, url, line } = payload;
+  const quote = `${line}\n\n${INVITE}`;
+  try {
+    const res = await fbUi({
+      method: "share",
+      href: url,
+      quote,
+      hashtag: "#SprintMax",
+    });
+    if (res?.cancelled && !res?.post_id) return "aborted";
+    return "facebook-published";
+  } catch (err) {
+    // Fallback: classic sharer (still opens Facebook compose with link)
+    openUrl(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`
+    );
+    return "facebook-sharer";
+  }
+}
+
+export async function publishToMessenger(payload, config) {
+  const appId = resolveMetaAppId(config);
+  const { url } = payload;
+  if (appId && window.FB?.ui) {
+    try {
+      await ensureMetaSdk(config);
+      const res = await fbUi({
+        method: "send",
+        link: url,
+      });
+      if (res?.cancelled) return "aborted";
+      return "messenger-published";
+    } catch {
+      /* fall through */
+    }
+  }
+  const redirect = encodeURIComponent(url);
+  const appQ = appId ? `&app_id=${encodeURIComponent(appId)}` : "";
+  openUrl(
+    `https://www.facebook.com/dialog/send?link=${encodeURIComponent(url)}&redirect_uri=${redirect}${appQ}`
+  );
+  return "open";
+}
+
+/**
+ * Share / publish to a chosen network.
+ * Facebook uses Meta Share Dialog when App ID is configured.
+ * Instagram / TikTok have no public web composer for personal accounts —
+ * we hand off the story image via the system share sheet (or download + caption).
+ */
+export async function shareToPlatform(platform, payload, config = {}) {
   const { text, url, line, canvas } = payload;
   const title = "Sprint Max";
 
@@ -88,6 +159,9 @@ export async function shareToPlatform(platform, payload) {
   }
 
   if (platform === "facebook") {
+    if (isMetaConfigured(config)) {
+      return publishToFacebook(payload, config);
+    }
     openUrl(
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(line + "\n\n" + INVITE)}`
     );
@@ -95,8 +169,7 @@ export async function shareToPlatform(platform, payload) {
   }
 
   if (platform === "messenger") {
-    openUrl(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(url)}&redirect_uri=${encodeURIComponent(url)}`);
-    return "open";
+    return publishToMessenger(payload, config);
   }
 
   if (platform === "copy") {
@@ -109,7 +182,7 @@ export async function shareToPlatform(platform, payload) {
     return "saved";
   }
 
-  // Instagram, TikTok, Stories: image-first
+  // Instagram, TikTok, Stories: image-first handoff (no official personal publish API on web)
   if (platform === "instagram" || platform === "tiktok" || platform === "stories") {
     try {
       const how = await shareFiles({ title, text, url, canvas });
