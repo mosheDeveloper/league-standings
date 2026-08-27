@@ -107,8 +107,18 @@
 
     <section class="view" data-view="history">
       <h1 class="page-title">הריצות שלי</h1>
-      <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
-      <ul class="ladder" id="history-list"></ul>
+      <div class="pr-chart-block">
+        <div class="pr-chart-head">
+          <h2 class="section-title">גרף שיאים עולים</h2>
+          <p class="hint tight">כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.</p>
+        </div>
+        <div class="pr-chart-wrap" id="pr-chart" dir="ltr" aria-label="גרף שיאים אישיים עולים"></div>
+        <p class="hint pr-chart-tip">לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).</p>
+      </div>
+      <div class="history-list-block">
+        <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
+        <ul class="ladder" id="history-list"></ul>
+      </div>
     </section>
 
     <section class="view" data-view="tables">
@@ -189,6 +199,18 @@
         <button type="button" data-platform="copy"><i class="cp">⧉</i>העתקת טקסט</button>
       </div>
       <button class="ghost-wide" data-close-sheet type="button">ביטול</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="pr-point-sheet" hidden>
+    <div class="sheet-bg" data-close-pr-point></div>
+    <div class="sheet-card" role="dialog" aria-label="תיעוד שיא">
+      <div class="sheet-handle"></div>
+      <h2>תיעוד שיא</h2>
+      <p class="hint" id="pr-point-detail"></p>
+      <p class="hint">אם מישהו אחר השתמש בטלפון ועשה שיא — אפשר להסיר את התיעוד מגרף השיפור שלכם. הריצה תישאר בהיסטוריה.</p>
+      <button class="cta danger" id="btn-exclude-pr" type="button">מחק תיעוד שיא זה</button>
+      <button class="ghost-wide" data-close-pr-point type="button">ביטול</button>
     </div>
   </div>
 

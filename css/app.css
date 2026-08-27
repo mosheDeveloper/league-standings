@@ -232,6 +232,83 @@ h1, .page-title {
 }
 
 .section-title { font-size: 18px; margin: 8px 0; }
+
+.pr-chart-block {
+  margin: 4px 0 8px;
+  padding: 14px 12px 10px;
+  background: rgba(255,255,255,.04);
+  border-radius: 22px;
+}
+.pr-chart-head .section-title { margin: 0 0 4px; font-size: 17px; }
+.pr-chart-wrap {
+  width: 100%;
+  min-height: 168px;
+  margin-top: 8px;
+  touch-action: manipulation;
+}
+.pr-chart-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
+.pr-chart-empty {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--dim);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 18px 8px;
+}
+.pr-chart-tip { margin: 8px 2px 0; font-size: 12px; }
+.pr-point {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pr-point circle.pr-hit { fill: transparent; }
+.pr-point circle.pr-dot {
+  fill: var(--red);
+  stroke: #1a080a;
+  stroke-width: 2;
+}
+.pr-point.is-active circle.pr-dot,
+.pr-point:focus-visible circle.pr-dot {
+  fill: #ff7a87;
+  stroke: #fff;
+}
+.pr-line {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .85;
+}
+.pr-label-speed {
+  fill: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  font-family: Heebo, system-ui, sans-serif;
+}
+.pr-label-date {
+  fill: var(--dim);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: Heebo, system-ui, sans-serif;
+}
+.pr-axis {
+  stroke: rgba(255,255,255,.08);
+  stroke-width: 1;
+}
+.history-list-block {
+  margin-top: 28px;
+  padding-top: 6px;
+}
+.history-list-block .ladder b.invalid { color: var(--red); }
+.cta.danger {
+  background: var(--red);
+  color: #fff;
+  margin-top: 8px;
+}
+
 .ladder { list-style: none; padding: 0; margin: 0; }
 .ladder li {
   display: flex;
