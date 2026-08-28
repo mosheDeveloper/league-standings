@@ -50,6 +50,7 @@ const state = {
   compareFilters: { sport: null, leagueId: null, team: null },
   prPointId: null,
   prHold: null,
+  trainingCatalog: null,
 };
 
 function toast(msg) {
@@ -819,6 +820,74 @@ function renderHistory() {
     .join("");
 }
 
+function youtubeEmbedSrc(videoId) {
+  const id = String(videoId || "").trim();
+  if (!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return "";
+  // Official YouTube embed player (iframe) — required by YouTube ToS.
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`;
+}
+
+function renderTraining() {
+  const host = $("training-grid");
+  if (!host) return;
+  const catalog = state.trainingCatalog;
+  if ($("training-title") && catalog?.title) $("training-title").textContent = catalog.title;
+  if ($("training-sub") && catalog?.subtitle) $("training-sub").textContent = catalog.subtitle;
+
+  const cols = Math.max(1, Number(catalog?.columns) || 2);
+  host.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  const videos = [...(catalog?.videos || [])]
+    .map((v, i) => ({
+      slot: Number(v.slot) || i + 1,
+      youtubeId: v.youtubeId || v.id || "",
+      title: v.title || `סרטון ${Number(v.slot) || i + 1}`,
+    }))
+    .filter((v) => v.youtubeId)
+    .sort((a, b) => a.slot - b.slot);
+
+  if (!videos.length) {
+    host.innerHTML = `<p class="training-empty">עדיין אין סרטוני הדרכה זמינים.</p>`;
+    return;
+  }
+
+  host.innerHTML = videos
+    .map((v) => {
+      const src = youtubeEmbedSrc(v.youtubeId);
+      if (!src) {
+        return `<article class="training-card" data-slot="${v.slot}">
+          <span class="training-slot">${v.slot}</span>
+          <div class="training-frame"></div>
+          <p class="training-title">${escAttr(v.title)}</p>
+        </article>`;
+      }
+      return `<article class="training-card" data-slot="${v.slot}">
+        <span class="training-slot">${v.slot}</span>
+        <div class="training-frame">
+          <iframe
+            src="${src}"
+            title="${escAttr(v.title)}"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+          ></iframe>
+        </div>
+        <p class="training-title">${escAttr(v.title)}</p>
+      </article>`;
+    })
+    .join("");
+}
+
+async function loadTrainingCatalog() {
+  try {
+    state.trainingCatalog = await (await fetch("./data/training-videos.json", { cache: "no-store" })).json();
+  } catch {
+    state.trainingCatalog = { title: "שיפור ביצועים", subtitle: "", columns: 2, videos: [] };
+  }
+  renderTraining();
+}
+
 async function shareResult(platform) {
   const r = state.lastResult;
   if (!r?.analysis?.valid) return;
@@ -892,6 +961,7 @@ function wireUi() {
     b.addEventListener("click", () => {
       const v = b.dataset.view;
       if (v === "history") renderHistory();
+      if (v === "training") renderTraining();
       if (v === "home") {
         renderProfile();
         greet();
@@ -990,6 +1060,7 @@ async function init() {
   renderLeagues();
   renderProfile();
   renderHistory();
+  await loadTrainingCatalog();
   state.authConfig = await loadAuthConfig();
   try {
     state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();

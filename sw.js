@@ -20,6 +20,7 @@ const ASSETS = [
   "./data/catalog.json",
   "./data/auth.json",
   "./data/records.json",
+  "./data/training-videos.json",
   "./data/leagues/athletics-stars.json",
   "./data/leagues/premier-league.json",
   "./data/leagues/la-liga.json",
