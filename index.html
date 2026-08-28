@@ -147,7 +147,7 @@
 
     <section class="view" data-view="training">
       <h1 class="page-title" id="training-title">שיפור ביצועים</h1>
-      <p class="hint" id="training-sub">סרטוני הדרכה. לחצו על נגן כדי לצפות.</p>
+      <p class="hint" id="training-sub">סרטוני הדרכה. לחצו על סרטון כדי לפתוח נגן במסך מלא.</p>
       <div class="training-grid" id="training-grid" dir="ltr" aria-label="סרטוני הדרכה"></div>
     </section>
   </div>
@@ -207,6 +207,24 @@
       <p class="hint">אם מישהו אחר השתמש בטלפון ועשה שיא — אפשר להסיר את התיעוד מגרף השיפור שלכם. הריצה תישאר בהיסטוריה.</p>
       <button class="cta danger" id="btn-exclude-pr" type="button">מחק תיעוד שיא זה</button>
       <button class="ghost-wide" data-close-pr-point type="button">ביטול</button>
+    </div>
+  </div>
+
+  <div class="video-player" id="video-player" hidden>
+    <div class="video-player-backdrop" data-close-video></div>
+    <div class="video-player-stage" id="video-player-stage">
+      <header class="video-player-bar">
+        <p class="video-player-title" id="video-player-title"></p>
+        <div class="video-player-actions">
+          <button type="button" class="icon-btn video-fs-btn" id="btn-video-fs" aria-label="מסך מלא" title="מסך מלא">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button type="button" class="icon-btn video-close-btn" id="btn-video-close" aria-label="סגירה" title="סגירה">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="video-player-frame" id="video-player-frame"></div>
     </div>
   </div>
 
