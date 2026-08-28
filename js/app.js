@@ -178,7 +178,7 @@ async function onMetaLogin(provider) {
       maxSpeedKmh: f.maxSpeedKmh,
     }));
     await finishLogin(session);
-    toast("Meta לא הוגדר עדיין — התחברות מקומית. הזינו App ID ב-data/auth.json לחיבור אמיתי.");
+    toast("התחברתם. השוואת חברים זמינה אחרי חיבור לרשתות חברתיות.");
   }
 }
 
@@ -218,10 +218,6 @@ function fillSelects() {
   if ($("table-select")) {
     $("table-select").innerHTML = opts;
     $("table-select").value = state.selectedId;
-  }
-  if ($("editor-select")) {
-    $("editor-select").innerHTML = opts;
-    $("editor-select").value = state.selectedId;
   }
 }
 
@@ -376,8 +372,7 @@ function renderAthleteCompare() {
     if ($("compare-ladder")) $("compare-ladder").innerHTML = "";
     if ($("compare-disclaimer")) {
       $("compare-disclaimer").textContent =
-        state.catalog.disclaimer ||
-        "כל הנתונים שמורים מקומית ב־JSON — בלי תלות במקור חיצוני.";
+        state.catalog.disclaimer || "המהירויות משוערות — להשוואה ולהשראה בלבד.";
     }
     return;
   }
@@ -427,8 +422,7 @@ function renderAthleteCompare() {
       $("compare-disclaimer").textContent = state.tables[filters.leagueId]?.disclaimer || "";
     } else {
       $("compare-disclaimer").textContent =
-        state.catalog.disclaimer ||
-        "מהירויות משוערות לפי מסד JSON מקומי — להשוואה בלבד.";
+        state.catalog.disclaimer || "המהירויות משוערות — להשוואה ולהשראה בלבד.";
     }
   }
 }
@@ -481,13 +475,7 @@ async function refreshGpsLock() {
 }
 
 function renderProfile() {
-  const verified = Store.verifiedRuns();
-  const profile = buildProfile(verified.map((r) => r.analysis));
-  if (!profile.runs) {
-    $("profile-box").textContent = "אין עדיין פרופיל. שלוש ריצות מאושרות ילמדו את קצב הריצה שלך.";
-    return;
-  }
-  $("profile-box").textContent = `${profile.runs} ריצות מאושרות · ממוצע שיא ${profile.mean} קמ״ש. נסיעה ברכב תיחסם אוטומטית.`;
+  /* Profile anti-cheat stats stay internal — not shown on the run screen. */
 }
 
 function onLive(update) {
@@ -499,7 +487,7 @@ function onLive(update) {
   const ring = $("speed-ring");
   if (ring) ring.style.setProperty("--p", String(Math.min(1, (update.speedKmh || 0) / 36)));
   if (update.gpsError) {
-    $("live-status").textContent = "אבד אות GPS — שבו לאוויר הפתוח";
+    $("live-status").textContent = "אבד אות GPS — חזרו לאוויר הפתוח";
   } else if (update.gpsAccuracy != null) {
     $("live-status").textContent = `מיקום חי · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
   }
@@ -580,12 +568,13 @@ function renderResult() {
   $("result-speed").textContent = Number(r.maxKmh).toFixed(1);
   $("result-place").textContent = `\u202A${r.comparison.place} / ${r.comparison.total}\u202C`;
   const badge = $("result-badge");
-  badge.className = "badge " + (a.valid ? "ok" : "bad");
-  badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר — חשד לרכב / רמאות";
+  badge.className = "pill " + (a.valid ? "ok" : "bad");
+  badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר";
   $("result-msg").textContent = a.messageHe;
   $("share-line").textContent = a.valid ? r.share : "לא ניתן לשתף שיא לא מאושר כהישג.";
   $("share-block").hidden = !a.valid;
-  $("cadence-out").textContent = `${a.cadenceHz ?? "—"} הרץ · bounce ${a.bounceScore ?? "—"}`;
+  const statusEl = $("result-status");
+  if (statusEl) statusEl.textContent = a.valid ? "אושר" : "לא אושר";
 
   const athletes = r.comparison.athletes || [];
   const items = athletes.map(
@@ -742,33 +731,6 @@ function renderHistory() {
     .join("");
 }
 
-async function openEditor() {
-  const id = $("editor-select").value;
-  const table = await ensureTable(id);
-  $("json-editor").value = JSON.stringify(table, null, 2);
-}
-
-function saveEditor() {
-  const id = $("editor-select").value;
-  let parsed;
-  try {
-    parsed = JSON.parse($("json-editor").value);
-  } catch {
-    toast("JSON לא תקין");
-    return;
-  }
-  parsed = normalizeLeagueTable(parsed);
-  if (!Array.isArray(parsed.athletes) || !parsed.athletes.length) {
-    toast("חסרים ספורטאים (teams או athletes)");
-    return;
-  }
-  parsed.id = parsed.id || id;
-  Store.setOverride(id, parsed);
-  state.tables[id] = parsed;
-  renderAthleteCompare();
-  toast("הטבלה נשמרה במכשיר");
-}
-
 async function shareResult(platform) {
   const r = state.lastResult;
   if (!r?.analysis?.valid) return;
@@ -840,41 +802,10 @@ function wireUi() {
       if (v === "records") renderRecords();
       if (v === "tables") {
         renderLeagues();
-        openEditor();
       }
       showView(v);
     })
   );
-  $("editor-select")?.addEventListener("change", openEditor);
-  $("btn-save-json")?.addEventListener("click", saveEditor);
-  $("btn-reset-json")?.addEventListener("click", () => {
-    Store.clearOverride($("editor-select").value);
-    delete state.tables[$("editor-select").value];
-    openEditor();
-    toast("חזרה לטבלת ברירת המחדל");
-  });
-  $("btn-export")?.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(Store.getOverrides(), null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "runspeed-tables-overlay.json";
-    a.click();
-  });
-  $("import-file")?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const parsed = JSON.parse(await file.text());
-      for (const [id, table] of Object.entries(parsed)) Store.setOverride(id, table);
-      state.tables = {};
-      await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
-      await openEditor();
-      renderLeagues();
-      toast("ייבוא הצליח");
-    } catch {
-      toast("ייבוא נכשל");
-    }
-  });
   $("btn-open-share")?.addEventListener("click", openShareSheet);
   $("share-sheet")?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-sheet]")) closeShareSheet();
@@ -956,7 +887,6 @@ async function init() {
   renderLeagues();
   renderProfile();
   renderHistory();
-  await openEditor();
   state.authConfig = await loadAuthConfig();
   try {
     state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();
@@ -981,6 +911,5 @@ async function init() {
 
 init().catch((err) => {
   console.error(err);
-  const el = $("profile-box");
-  if (el) el.textContent = err.message || String(err);
+  toast(err.message || String(err));
 });
