@@ -20,25 +20,37 @@
 7. בלי App ID כפתורי Meta **חסומים** — אין יותר התחברות מדומה. **אורח** נשאר בלי לוח חברים.
 8. סנכרון שיאים בין מכשירים (אופציונלי): פרסו `workers/community.js` ל־Cloudflare Worker + KV, והעתיקו את ה־URL ל־`communityEndpoint` ב־`auth.json`.
 
-## טבלאות JSON לעריכה
-כל הטבלאות בתיקיית [`data/`](data/):
+## טבלאות JSON מקומיות (מקצוענים)
+כל מסד המקצוענים סטטי תחת [`data/`](data/) — **בלי משיכה חיה מהרשת בזמן שימוש**:
 
 | קובץ | תוכן |
 |---|---|
-| `data/tables.json` | קטלוג הטבלאות |
-| `data/football-stars.json` | כוכבי כדורגל |
-| `data/premier-league.json` | פרמייר ליג |
-| `data/israeli-football.json` | כדורגל ישראלי |
-| `data/athletics.json` | ספרינטרים |
-| `data/nba.json` | כוכבי NBA |
+| `data/catalog.json` | היררכיה: ענף → ליגה/קטגוריה → קבצי ליגה |
+| `data/leagues/athletics-stars.json` | אתלטיקה — כוכבי ספרינט |
+| `data/leagues/premier-league.json` | פרמייר ליג לפי קבוצות |
+| `data/leagues/la-liga.json` | לה ליגה לפי קבוצות |
+| `data/leagues/israeli-premier.json` | ליגת העל לפי קבוצות |
+| `data/leagues/football-world.json` | כוכבים מליגות נוספות |
+| `data/leagues/nba.json` | NBA לפי קבוצות |
 
-מבנה ספורטאי:
+מבנה ליגה:
 
 ```json
-{ "id": "mbappe", "name": "קיליאן מבאפה", "team": "ריאל מדריד", "maxSpeedKmh": 38.0 }
+{
+  "id": "premier-league",
+  "teams": [
+    {
+      "id": "arsenal",
+      "name": "ארסנל",
+      "athletes": [
+        { "id": "saka", "name": "בוקאיו סאקה", "maxSpeedKmh": 34.4 }
+      ]
+    }
+  ]
+}
 ```
 
-המהירויות הן הערכות לפי פרסומים ציבוריים — עדכנו אותן בקלות. באפליקציה יש גם עורך JSON (נשמר במכשיר כשכבה מעל הקובץ).
+המהירויות הן הערכות לפי פרסומים ציבוריים — עדכנו אותן בקלות בעורך ה־JSON במסך **מקצוענים**.
 
 ## הרצה מקומית
 ```bash

@@ -1,9 +1,18 @@
 import { analyzeRun, buildProfile } from "./anticheat.js";
-import { rankAgainstTable } from "./compare.js";
+import {
+  rankAgainstTable,
+  buildAthletePool,
+  filterOptions,
+  describeFilters,
+  sportLabel,
+  flattenCatalog,
+  normalizeLeagueTable,
+} from "./compare.js";
 import { Tracker, probeGps } from "./tracker.js";
 import { Store } from "./store.js";
 import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
 import { buildBoards, bestVerifiedKmh, canSeeFriends } from "./records.js";
+import { ascendingPersonalRecords, formatPrDate } from "./pr-progress.js";
 import {
   getSession,
   saveSession,
@@ -29,7 +38,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   catalog: null,
   tables: {},
-  selectedId: "football-stars",
+  selectedId: "premier-league",
   mode: "run",
   tracker: null,
   gpsOk: false,
@@ -38,6 +47,9 @@ const state = {
   session: null,
   recordsTab: "local",
   authConfig: null,
+  compareFilters: { sport: null, leagueId: null, team: null },
+  prPointId: null,
+  prHold: null,
 };
 
 function toast(msg) {
@@ -46,9 +58,12 @@ function toast(msg) {
     console.info(msg);
     return;
   }
+  el.hidden = false;
   el.textContent = msg;
   el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2200);
+  setTimeout(() => {
+    el.classList.remove("show");
+  }, 2200);
 }
 
 function showView(name) {
@@ -245,17 +260,20 @@ async function onMetaLogin(provider) {
 }
 
 async function loadCatalog() {
-  const res = await fetch("./data/tables.json", { cache: "no-store" });
-  if (!res.ok) throw new Error("לא ניתן לטעון טבלאות");
-  return res.json();
+  const res = await fetch("./data/catalog.json", { cache: "no-store" });
+  if (!res.ok) throw new Error("לא ניתן לטעון קטלוג מקצוענים");
+  const catalog = await res.json();
+  const tables = flattenCatalog(catalog);
+  if (!tables.length) throw new Error("קטלוג ריק");
+  return { ...catalog, tables };
 }
 
 async function fetchTable(meta) {
   const overrides = Store.getOverrides();
-  if (overrides[meta.id]) return overrides[meta.id];
+  if (overrides[meta.id]) return normalizeLeagueTable(overrides[meta.id]);
   const res = await fetch(`./${meta.file}`.replace(/^\.\//, "./"), { cache: "no-store" });
   if (!res.ok) throw new Error("טבלה חסרה");
-  return res.json();
+  return normalizeLeagueTable(await res.json());
 }
 
 async function ensureTable(id) {
@@ -270,34 +288,235 @@ function sportMark(sport) {
 }
 
 function fillSelects() {
+  if (!state.catalog) return;
   const opts = state.catalog.tables
     .map((t) => `<option value="${t.id}">${t.name || t.title}</option>`)
     .join("");
-  $("table-select").innerHTML = opts;
-  $("editor-select").innerHTML = opts;
-  $("table-select").value = state.selectedId;
-  $("editor-select").value = state.selectedId;
-  $("league-chips").innerHTML = state.catalog.tables
-    .map(
-      (t) =>
-        `<button type="button" class="league-chip ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">${sportMark(t.sport)} ${t.name || t.title}</button>`
-    )
-    .join("");
+  if ($("table-select")) {
+    $("table-select").innerHTML = opts;
+    $("table-select").value = state.selectedId;
+  }
 }
 
 function renderLeagues() {
-  const host = $("league-cards");
-  if (!host) return;
-  host.innerHTML = state.catalog.tables
-    .map((t) => {
-      const table = state.tables[t.id];
-      const n = table?.athletes?.length ?? "—";
-      return `<button type="button" class="league-card ${t.id === state.selectedId ? "on" : ""}" data-id="${t.id}">
-        <strong>${sportMark(t.sport)} ${t.name || t.title}</strong>
-        <small>${t.blurb || ""} · ${n} ספורטאים</small>
-      </button>`;
-    })
+  renderFilterChips();
+  renderAthleteCompare();
+}
+
+function chipHtml(label, on, attrs) {
+  return `<button type="button" class="league-chip ${on ? "on" : ""}" ${attrs}>${label}</button>`;
+}
+
+function escAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+function sanitizeCompareFilters(filters) {
+  const next = {
+    sport: filters?.sport || null,
+    leagueId: filters?.leagueId || null,
+    team: filters?.team || null,
+  };
+  const opts = filterOptions(state.tables, state.catalog?.tables || [], next);
+  if (next.sport && !opts.sports.includes(next.sport)) next.sport = null;
+  if (next.leagueId && !opts.leagues.some((l) => l.id === next.leagueId)) {
+    next.leagueId = null;
+  }
+  // Auto-select sole league for sports like athletics → כוכבים
+  if (next.sport && !next.leagueId && opts.leagues.length === 1) {
+    next.leagueId = opts.leagues[0].id;
+  }
+  const teamOpts = filterOptions(state.tables, state.catalog?.tables || [], {
+    sport: next.sport,
+    leagueId: next.leagueId,
+    team: null,
+  }).teams;
+  if (next.team && !teamOpts.includes(next.team)) next.team = null;
+  return next;
+}
+
+function setCompareFilters(partial, { syncRunTable = true } = {}) {
+  const merged = sanitizeCompareFilters({ ...state.compareFilters, ...partial });
+  state.compareFilters = merged;
+  Store.setCompareFilters(merged);
+  if (syncRunTable && merged.leagueId) {
+    state.selectedId = merged.leagueId;
+    Store.setTableId(merged.leagueId);
+  } else if (syncRunTable && !merged.leagueId && state.catalog?.tables?.length) {
+    const match = state.catalog.tables.find((t) => !merged.sport || t.sport === merged.sport);
+    if (match) {
+      state.selectedId = match.id;
+      Store.setTableId(match.id);
+    }
+  }
+  fillSelects();
+  renderFilterChips();
+  renderAthleteCompare();
+}
+
+function paintFilterRow() {
+  if (!state.catalog || !$("filter-sport")) return null;
+  const filters = sanitizeCompareFilters(state.compareFilters);
+  state.compareFilters = filters;
+  const opts = filterOptions(state.tables, state.catalog.tables, filters);
+
+  $("filter-sport").innerHTML = opts.sports
+    .map((s) =>
+      chipHtml(
+        `${sportMark(s)} ${sportLabel(s)}`,
+        filters.sport === s,
+        `data-filter="sport" data-value="${s}"`
+      )
+    )
     .join("");
+
+  const leagueRow = $("filter-league-row");
+  const leagueLabel = $("filter-league-label");
+  if (!filters.sport) {
+    if (leagueRow) leagueRow.hidden = true;
+  } else {
+    if (leagueRow) leagueRow.hidden = false;
+    const isStars = opts.leagues.every((l) => {
+      const meta = state.catalog.tables.find((t) => t.id === l.id);
+      return meta?.kind === "stars" || meta?.hideTeams;
+    });
+    if (leagueLabel) leagueLabel.textContent = isStars ? "קטגוריה" : "ליגה";
+    $("filter-league").innerHTML = opts.leagues
+      .map((l) =>
+        chipHtml(
+          l.name,
+          filters.leagueId === l.id,
+          `data-filter="league" data-value="${l.id}"`
+        )
+      )
+      .join("");
+  }
+
+  const teamRow = $("filter-team-row");
+  if (!filters.sport || !filters.leagueId || opts.hideTeams || !opts.teams.length) {
+    if (teamRow) teamRow.hidden = true;
+  } else if (teamRow) {
+    teamRow.hidden = false;
+    $("filter-team").innerHTML =
+      chipHtml("כל הקבוצות", !filters.team, 'data-filter="team" data-value=""') +
+      opts.teams
+        .map((team) =>
+          chipHtml(team, filters.team === team, `data-filter="team" data-value="${escAttr(team)}"`)
+        )
+        .join("");
+  }
+
+  return { filters, opts };
+}
+
+function renderFilterChips() {
+  paintFilterRow();
+}
+
+function activeComparisonTable() {
+  const filters = sanitizeCompareFilters(state.compareFilters);
+  const athletes = buildAthletePool(state.tables, state.catalog?.tables || [], filters);
+  const title = describeFilters(filters, state.catalog?.tables || []);
+  const base =
+    (filters.leagueId && state.tables[filters.leagueId]) ||
+    state.tables[state.selectedId] ||
+    {};
+  return {
+    ...base,
+    id: filters.leagueId || state.selectedId || "pool",
+    title,
+    name: title,
+    athletes,
+    disclaimer:
+      (filters.leagueId && state.tables[filters.leagueId]?.disclaimer) ||
+      base.disclaimer ||
+      "מהירויות משוערות לפי הסינון שנבחר — להשוואה בלבד.",
+  };
+}
+
+function renderAthleteCompare() {
+  if (!state.catalog) return;
+  renderFilterChips();
+  const filters = sanitizeCompareFilters(state.compareFilters);
+  state.compareFilters = filters;
+
+  if (!filters.sport) {
+    if ($("compare-scope")) $("compare-scope").textContent = "בחרו ענף ספורט כדי לראות מקצוענים";
+    if ($("compare-place")) $("compare-place").textContent = "";
+    if ($("compare-ladder")) $("compare-ladder").innerHTML = "";
+    if ($("compare-disclaimer")) {
+      $("compare-disclaimer").textContent =
+        state.catalog.disclaimer || "המהירויות משוערות — להשוואה ולהשראה בלבד.";
+    }
+    return;
+  }
+
+  const athletes = buildAthletePool(state.tables, state.catalog.tables, filters);
+  const scope = describeFilters(filters, state.catalog.tables);
+  if ($("compare-scope")) {
+    $("compare-scope").textContent = `${scope} · ${athletes.length} ספורטאים לפי מהירות`;
+  }
+
+  const myKmh = myBest();
+  if (!$("compare-place") || !$("compare-ladder")) return;
+
+  if (!athletes.length) {
+    $("compare-place").textContent = "אין ספורטאים בסינון הזה — נסו ליגה או קבוצה אחרת.";
+    $("compare-ladder").innerHTML = "";
+    if ($("compare-disclaimer")) $("compare-disclaimer").textContent = "";
+    return;
+  }
+
+  if (myKmh > 0) {
+    const comparison = rankAgainstTable(myKmh, athletes);
+    $("compare-place").textContent = `את/ה במקום ${comparison.place} מתוך ${comparison.total} · שיא: ${myKmh.toFixed(1)} קמ״ש`;
+    const items = athletes.map((ath, i) => {
+      const meta = [ath.team, ath.leagueName].filter(Boolean).join(" · ");
+      return `<li><span>${i + 1}. ${ath.name}<small class="muted"> ${meta}</small></span><b>${Number(ath.maxSpeedKmh).toFixed(1)}</b></li>`;
+    });
+    const insertAt = athletes.filter((x) => x.maxSpeedKmh >= myKmh).length;
+    items.splice(
+      insertAt,
+      0,
+      `<li class="you"><span>את/ה · שיא אישי</span><b>${myKmh.toFixed(1)} קמ״ש</b></li>`
+    );
+    $("compare-ladder").innerHTML = items.join("");
+  } else {
+    $("compare-place").textContent = "עדיין אין שיא מאושר — הסולם מציג את המקצוענים. אחרי ריצה תקינה תופיעו כאן.";
+    $("compare-ladder").innerHTML = athletes
+      .map((ath, i) => {
+        const meta = [ath.team, ath.leagueName].filter(Boolean).join(" · ");
+        return `<li><span>${i + 1}. ${ath.name}<small class="muted"> ${meta}</small></span><b>${Number(ath.maxSpeedKmh).toFixed(1)}</b></li>`;
+      })
+      .join("");
+  }
+
+  if ($("compare-disclaimer")) {
+    if (filters.leagueId) {
+      $("compare-disclaimer").textContent = state.tables[filters.leagueId]?.disclaimer || "";
+    } else {
+      $("compare-disclaimer").textContent =
+        state.catalog.disclaimer || "המהירויות משוערות — להשוואה ולהשראה בלבד.";
+    }
+  }
+}
+
+function onCompareFilterClick(e) {
+  const btn = e.target.closest("[data-filter]");
+  if (!btn) return;
+  e.preventDefault();
+  const kind = btn.dataset.filter;
+  const value = btn.dataset.value || null;
+  if (kind === "sport") {
+    setCompareFilters({ sport: value || null, leagueId: null, team: null });
+  } else if (kind === "league") {
+    setCompareFilters({ leagueId: value || null, team: null });
+  } else if (kind === "team") {
+    setCompareFilters({ team: value || null }, { syncRunTable: false });
+  }
 }
 
 function setGpsUi({ state: gpsState, text, canStart }) {
@@ -333,13 +552,7 @@ async function refreshGpsLock() {
 }
 
 function renderProfile() {
-  const verified = Store.verifiedRuns();
-  const profile = buildProfile(verified.map((r) => r.analysis));
-  if (!profile.runs) {
-    $("profile-box").textContent = "אין עדיין פרופיל. שלוש ריצות מאושרות ילמדו את קצב הריצה שלך.";
-    return;
-  }
-  $("profile-box").textContent = `${profile.runs} ריצות מאושרות · ממוצע שיא ${profile.mean} קמ״ש. נסיעה ברכב תיחסם אוטומטית.`;
+  /* Profile anti-cheat stats stay internal — not shown on the run screen. */
 }
 
 function onLive(update) {
@@ -351,7 +564,7 @@ function onLive(update) {
   const ring = $("speed-ring");
   if (ring) ring.style.setProperty("--p", String(Math.min(1, (update.speedKmh || 0) / 36)));
   if (update.gpsError) {
-    $("live-status").textContent = "אבד אות GPS — שבו לאוויר הפתוח";
+    $("live-status").textContent = "אבד אות GPS — חזרו לאוויר הפתוח";
   } else if (update.gpsAccuracy != null) {
     $("live-status").textContent = `מיקום חי · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
   }
@@ -398,15 +611,16 @@ function stopRun() {
   const verified = Store.verifiedRuns();
   const profile = buildProfile(verified.map((r) => r.analysis));
   const analysis = analyzeRun({ ...session, profile });
-  const table = state.tables[state.selectedId];
+  const table = activeComparisonTable();
   const comparison = rankAgainstTable(analysis.maxSpeedKmh, table);
   const payload = buildSharePayload(analysis.maxSpeedKmh, comparison, tableTitle(table));
   const share = payload.line;
   const result = {
     at: new Date().toISOString(),
     mode: state.mode,
-    tableId: state.selectedId,
+    tableId: table.id || state.selectedId,
     tableTitle: tableTitle(table),
+    filters: { ...state.compareFilters },
     maxKmh: analysis.maxSpeedKmh,
     analysis,
     comparison,
@@ -418,7 +632,9 @@ function stopRun() {
   renderResult();
   showView("result");
   renderProfile();
+  renderHistory();
   renderRecords();
+  renderAthleteCompare();
   refreshGpsLock();
   if (analysis.valid) {
     syncMyScore().then(() => {
@@ -440,12 +656,13 @@ function renderResult() {
   $("result-speed").textContent = Number(r.maxKmh).toFixed(1);
   $("result-place").textContent = `\u202A${r.comparison.place} / ${r.comparison.total}\u202C`;
   const badge = $("result-badge");
-  badge.className = "badge " + (a.valid ? "ok" : "bad");
-  badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר — חשד לרכב / רמאות";
+  badge.className = "pill " + (a.valid ? "ok" : "bad");
+  badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר";
   $("result-msg").textContent = a.messageHe;
   $("share-line").textContent = a.valid ? r.share : "לא ניתן לשתף שיא לא מאושר כהישג.";
   $("share-block").hidden = !a.valid;
-  $("cadence-out").textContent = `${a.cadenceHz ?? "—"} הרץ · bounce ${a.bounceScore ?? "—"}`;
+  const statusEl = $("result-status");
+  if (statusEl) statusEl.textContent = a.valid ? "אושר" : "לא אושר";
 
   const athletes = r.comparison.athletes || [];
   const items = athletes.map(
@@ -474,46 +691,132 @@ function closeShareSheet() {
   $("share-sheet").hidden = true;
 }
 
+function openPrPointSheet(point) {
+  state.prPointId = point.id;
+  const when = new Date(point.at).toLocaleString("he-IL");
+  $("pr-point-detail").textContent = `${point.maxKmh.toFixed(1)} קמ״ש · ${when}`;
+  $("pr-point-sheet").hidden = false;
+}
+
+function closePrPointSheet() {
+  state.prPointId = null;
+  $("pr-point-sheet").hidden = true;
+}
+
+function clearPrHold() {
+  if (state.prHold?.timer) clearTimeout(state.prHold.timer);
+  state.prHold = null;
+}
+
+function bindPrPointGestures(root) {
+  root.querySelectorAll("[data-pr-id]").forEach((el) => {
+    const id = el.dataset.prId;
+    const openFor = () => {
+      const points = ascendingPersonalRecords(Store.getRuns());
+      const point = points.find((p) => p.id === id);
+      if (point) openPrPointSheet(point);
+    };
+
+    el.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      clearPrHold();
+      state.prHold = {
+        id,
+        x: e.clientX,
+        y: e.clientY,
+        timer: setTimeout(() => {
+          state.prHold = null;
+          if (navigator.vibrate) navigator.vibrate(12);
+          openFor();
+        }, 480),
+      };
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (!state.prHold || state.prHold.id !== id) return;
+      if (Math.hypot(e.clientX - state.prHold.x, e.clientY - state.prHold.y) > 12) clearPrHold();
+    });
+    el.addEventListener("pointerup", clearPrHold);
+    el.addEventListener("pointercancel", clearPrHold);
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openFor();
+    });
+  });
+}
+
+function renderPrChart() {
+  const host = $("pr-chart");
+  if (!host) return;
+  const points = ascendingPersonalRecords(Store.getRuns());
+  if (!points.length) {
+    host.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
+    return;
+  }
+
+  const w = 320;
+  const h = 168;
+  const pad = { t: 28, r: 16, b: 36, l: 16 };
+  const innerW = w - pad.l - pad.r;
+  const innerH = h - pad.t - pad.b;
+  const speeds = points.map((p) => p.maxKmh);
+  const minY = Math.max(0, Math.min(...speeds) - 1.5);
+  const maxY = Math.max(...speeds) + 1.2;
+  const spanY = Math.max(0.5, maxY - minY);
+  const n = points.length;
+
+  const xy = points.map((p, i) => {
+    const x = pad.l + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+    const y = pad.t + innerH - ((p.maxKmh - minY) / spanY) * innerH;
+    return { ...p, x, y };
+  });
+
+  const line = xy.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const axisY = pad.t + innerH;
+
+  host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="שיאים עולים לאורך זמן">
+    <line class="pr-axis" x1="${pad.l}" y1="${axisY}" x2="${w - pad.r}" y2="${axisY}" />
+    <path class="pr-line" d="${line}" />
+    ${xy
+      .map(
+        (p) => `<g class="pr-point" data-pr-id="${p.id}" tabindex="0" role="button"
+          aria-label="שיא ${p.maxKmh.toFixed(1)} קמ״ש ב-${formatPrDate(p.at)}. לחיצה ארוכה למחיקת תיעוד">
+          <circle class="pr-hit" cx="${p.x}" cy="${p.y}" r="18" />
+          <circle class="pr-dot" cx="${p.x}" cy="${p.y}" r="6" />
+          <text class="pr-label-speed" x="${p.x}" y="${p.y - 12}" text-anchor="middle">${p.maxKmh.toFixed(1)}</text>
+          <text class="pr-label-date" x="${p.x}" y="${axisY + 16}" text-anchor="middle">${formatPrDate(p.at)}</text>
+        </g>`
+      )
+      .join("")}
+  </svg>`;
+  bindPrPointGestures(host);
+}
+
 function renderHistory() {
+  renderPrChart();
   const h = Store.getRuns();
   if (!h.length) {
     $("history-list").innerHTML = `<p class="muted">אין ריצות עדיין.</p>`;
     return;
   }
-  $("history-list").innerHTML = h
-    .map(
-      (e) => `<li>
+  // Keep approved runs near the top; push unapproved (red speeds) lower.
+  const ranked = [...h].sort((a, b) => {
+    const aOk = a.analysis?.valid ? 0 : 1;
+    const bOk = b.analysis?.valid ? 0 : 1;
+    if (aOk !== bOk) return aOk - bOk;
+    return String(b.at || "").localeCompare(String(a.at || ""));
+  });
+  $("history-list").innerHTML = ranked
+    .map((e) => {
+      const valid = !!e.analysis?.valid;
+      const excluded = !!e.excludeFromPr;
+      const status = !valid ? "לא אושר" : excluded ? "הוסר מהגרף" : "אושר";
+      return `<li>
         <span>${new Date(e.at).toLocaleString("he-IL")}<br>
-        <small class="muted">${e.tableTitle || ""} · ${e.analysis?.valid ? "אושר" : "לא אושר"}</small></span>
-        <b>${Number(e.maxKmh).toFixed(1)} קמ״ש</b>
-      </li>`
-    )
+        <small class="muted">${e.tableTitle || ""} · ${status}</small></span>
+        <b class="${valid ? "" : "invalid"}">${Number(e.maxKmh).toFixed(1)} קמ״ש</b>
+      </li>`;
+    })
     .join("");
-}
-
-async function openEditor() {
-  const id = $("editor-select").value;
-  const table = await ensureTable(id);
-  $("json-editor").value = JSON.stringify(table, null, 2);
-}
-
-function saveEditor() {
-  const id = $("editor-select").value;
-  let parsed;
-  try {
-    parsed = JSON.parse($("json-editor").value);
-  } catch {
-    toast("JSON לא תקין");
-    return;
-  }
-  if (!Array.isArray(parsed.athletes)) {
-    toast("חסר מערך athletes");
-    return;
-  }
-  parsed.id = parsed.id || id;
-  Store.setOverride(id, parsed);
-  state.tables[id] = parsed;
-  toast("הטבלה נשמרה במכשיר");
 }
 
 async function shareResult(platform) {
@@ -562,18 +865,131 @@ function wireInstall() {
   });
 }
 
+async function pickTable(id) {
+  state.selectedId = id;
+  Store.setTableId(id);
+  try {
+    await ensureTable(id);
+  } catch {
+    /* table may still be loading during early init */
+  }
+  const meta = state.catalog?.tables?.find((t) => t.id === id);
+  setCompareFilters({
+    sport: meta?.sport || null,
+    leagueId: id,
+    team: null,
+  });
+}
+
+function wireUi() {
+  $("compare-filters")?.addEventListener("click", onCompareFilterClick);
+  $("table-select")?.addEventListener("change", (e) => pickTable(e.target.value));
+  $("btn-gps-retry")?.addEventListener("click", () => refreshGpsLock());
+  $("btn-start")?.addEventListener("click", startRun);
+  $("btn-stop")?.addEventListener("click", stopRun);
+  $("btn-new-run")?.addEventListener("click", () => showView("home"));
+  document.querySelectorAll("nav.tabbar button").forEach((b) =>
+    b.addEventListener("click", () => {
+      const v = b.dataset.view;
+      if (v === "history") renderHistory();
+      if (v === "home") {
+        renderProfile();
+        greet();
+      }
+      if (v === "records") renderRecords();
+      if (v === "tables") {
+        renderLeagues();
+      }
+      showView(v);
+    })
+  );
+  $("btn-open-share")?.addEventListener("click", openShareSheet);
+  $("share-sheet")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-sheet]")) closeShareSheet();
+    const p = e.target.closest("[data-platform]")?.dataset.platform;
+    if (p) shareResult(p);
+  });
+  $("pr-point-sheet")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-pr-point]")) closePrPointSheet();
+  });
+  $("btn-exclude-pr")?.addEventListener("click", () => {
+    if (!state.prPointId) return;
+    Store.excludeFromPr(state.prPointId);
+    closePrPointSheet();
+    renderHistory();
+    renderProfile();
+    renderRecords();
+    toast("תיעוד השיא הוסר מהגרף");
+  });
+  $("btn-account")?.addEventListener("click", openLogin);
+  $("login-sheet")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-login]")) closeLogin();
+  });
+  $("btn-login-fb")?.addEventListener("click", () => onMetaLogin("facebook"));
+  $("btn-login-ig")?.addEventListener("click", () => onMetaLogin("instagram"));
+  $("btn-login-guest")?.addEventListener("click", async () => {
+    const name = $("login-name").value || Store.getName();
+    await finishLogin(guestSession(name));
+  });
+  $("btn-save-meta-app")?.addEventListener("click", async () => {
+    const id = setAppIdOverride($("meta-app-id")?.value || "");
+    state.authConfig = await loadAuthConfig();
+    renderMetaSetup();
+    toast(id ? "App ID נשמר במכשיר" : "App ID נמחק — משתמשים ב-auth.json");
+  });
+  $("btn-logout")?.addEventListener("click", async () => {
+    await logoutMeta(state.authConfig || {});
+    state.session = null;
+    greet();
+    renderAccountBtn();
+    renderRecords();
+    closeLogin();
+    toast("התנתקתם");
+  });
+  $("records-tabs")?.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-board]")?.dataset.board;
+    if (!tab) return;
+    state.recordsTab = tab;
+    $("records-tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.board === tab));
+    renderRecords();
+  });
+  $("btn-clear-history")?.addEventListener("click", () => {
+    localStorage.removeItem("sprint.max.runs");
+    renderHistory();
+    renderProfile();
+    renderRecords();
+    renderAthleteCompare();
+  });
+  wireInstall();
+}
+
 async function init() {
+  // Wire clicks first so sport/league/team chips work even while tables load.
+  wireUi();
+
   state.catalog = await loadCatalog();
   state.selectedId = Store.getTableId();
   if (!state.catalog.tables.some((t) => t.id === state.selectedId)) {
     state.selectedId = state.catalog.tables[0].id;
   }
+  state.compareFilters = sanitizeCompareFilters(Store.getCompareFilters());
+  if (!state.compareFilters.sport) {
+    const meta = state.catalog.tables.find((t) => t.id === state.selectedId);
+    state.compareFilters = sanitizeCompareFilters({
+      sport: meta?.sport || "football",
+      leagueId: state.selectedId,
+      team: null,
+    });
+  }
+  Store.setCompareFilters(state.compareFilters);
   fillSelects();
+  renderFilterChips();
+
   await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
+  state.compareFilters = sanitizeCompareFilters(state.compareFilters);
   renderLeagues();
   renderProfile();
   renderHistory();
-  await openEditor();
   state.authConfig = await loadAuthConfig();
   try {
     state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();
@@ -596,120 +1012,9 @@ async function init() {
   greet();
   renderAccountBtn();
   renderRecords();
+  renderAthleteCompare();
   refreshGpsLock();
   if (state.session?.facebookId) syncMyScore();
-
-  async function pickTable(id) {
-    state.selectedId = id;
-    Store.setTableId(id);
-    await ensureTable(id);
-    fillSelects();
-    renderLeagues();
-  }
-
-  $("league-chips").addEventListener("click", (e) => {
-    const id = e.target.closest("[data-id]")?.dataset.id;
-    if (id) pickTable(id);
-  });
-  $("league-cards").addEventListener("click", (e) => {
-    const id = e.target.closest("[data-id]")?.dataset.id;
-    if (id) pickTable(id);
-  });
-  $("table-select").addEventListener("change", (e) => pickTable(e.target.value));
-  $("btn-gps-retry").addEventListener("click", () => refreshGpsLock());
-  $("btn-start").addEventListener("click", startRun);
-  $("btn-stop").addEventListener("click", stopRun);
-  $("btn-new-run").addEventListener("click", () => showView("home"));
-  document.querySelectorAll("nav.tabbar button").forEach((b) =>
-    b.addEventListener("click", () => {
-      const v = b.dataset.view;
-      if (v === "history") renderHistory();
-      if (v === "home") {
-        renderProfile();
-        greet();
-      }
-      if (v === "records") renderRecords();
-      if (v === "tables") {
-        renderLeagues();
-        openEditor();
-      }
-      showView(v);
-    })
-  );
-  $("editor-select").addEventListener("change", openEditor);
-  $("btn-save-json").addEventListener("click", saveEditor);
-  $("btn-reset-json").addEventListener("click", () => {
-    Store.clearOverride($("editor-select").value);
-    delete state.tables[$("editor-select").value];
-    openEditor();
-    toast("חזרה לטבלת ברירת המחדל");
-  });
-  $("btn-export").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(Store.getOverrides(), null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "runspeed-tables-overlay.json";
-    a.click();
-  });
-  $("import-file").addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const parsed = JSON.parse(await file.text());
-      for (const [id, table] of Object.entries(parsed)) Store.setOverride(id, table);
-      state.tables = {};
-      await Promise.all(state.catalog.tables.map((t) => ensureTable(t.id)));
-      await openEditor();
-      renderLeagues();
-      toast("ייבוא הצליח");
-    } catch {
-      toast("ייבוא נכשל");
-    }
-  });
-  $("btn-open-share").addEventListener("click", openShareSheet);
-  $("share-sheet").addEventListener("click", (e) => {
-    if (e.target.closest("[data-close-sheet]")) closeShareSheet();
-    const p = e.target.closest("[data-platform]")?.dataset.platform;
-    if (p) shareResult(p);
-  });
-  $("btn-account").addEventListener("click", openLogin);
-  $("login-sheet").addEventListener("click", (e) => {
-    if (e.target.closest("[data-close-login]")) closeLogin();
-  });
-  $("btn-login-fb").addEventListener("click", () => onMetaLogin("facebook"));
-  $("btn-login-ig").addEventListener("click", () => onMetaLogin("instagram"));
-  $("btn-login-guest").addEventListener("click", async () => {
-    const name = $("login-name").value || Store.getName();
-    await finishLogin(guestSession(name));
-  });
-  $("btn-save-meta-app")?.addEventListener("click", async () => {
-    const id = setAppIdOverride($("meta-app-id")?.value || "");
-    state.authConfig = await loadAuthConfig();
-    renderMetaSetup();
-    toast(id ? "App ID נשמר במכשיר" : "App ID נמחק — משתמשים ב-auth.json");
-  });
-  $("btn-logout").addEventListener("click", async () => {
-    await logoutMeta(state.authConfig || {});
-    state.session = null;
-    greet();
-    renderAccountBtn();
-    renderRecords();
-    closeLogin();
-    toast("התנתקתם");
-  });
-  $("records-tabs").addEventListener("click", (e) => {
-    const tab = e.target.closest("[data-board]")?.dataset.board;
-    if (!tab) return;
-    state.recordsTab = tab;
-    $("records-tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.board === tab));
-    renderRecords();
-  });
-  $("btn-clear-history").addEventListener("click", () => {
-    localStorage.removeItem("sprint.max.runs");
-    renderHistory();
-    renderProfile();
-  });
-  wireInstall();
 
   if ("serviceWorker" in navigator) {
     try {
@@ -722,6 +1027,5 @@ async function init() {
 
 init().catch((err) => {
   console.error(err);
-  const el = $("profile-box");
-  if (el) el.textContent = err.message || String(err);
+  toast(err.message || String(err));
 });

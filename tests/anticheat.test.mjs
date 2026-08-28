@@ -117,6 +117,100 @@ test("share caption invites others to use the app", async () => {
   assert.match(payload.text, new RegExp(INVITE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
+test("athlete pool filters by sport, league and team", async () => {
+  const {
+    buildAthletePool,
+    filterOptions,
+    describeFilters,
+    rankAgainstTable,
+    normalizeLeagueTable,
+    flattenCatalog,
+  } = await import("../js/compare.js");
+
+  const catalogDoc = {
+    sports: [
+      {
+        id: "football",
+        name: "כדורגל",
+        leagues: [
+          { id: "premier-league", name: "פרמייר ליג", file: "x" },
+          { id: "la-liga", name: "לה ליגה", file: "y" },
+        ],
+      },
+      {
+        id: "basketball",
+        name: "כדורסל",
+        leagues: [{ id: "nba", name: "NBA", file: "z" }],
+      },
+    ],
+  };
+  const catalog = flattenCatalog(catalogDoc);
+  const tables = {
+    "premier-league": normalizeLeagueTable({
+      teams: [
+        {
+          id: "newcastle",
+          name: "ניוקאסל",
+          athletes: [{ id: "gordon", name: "גורדון", maxSpeedKmh: 36.6 }],
+        },
+        {
+          id: "arsenal",
+          name: "ארסנל",
+          athletes: [{ id: "saka2", name: "סאקה פל", maxSpeedKmh: 34 }],
+        },
+      ],
+    }),
+    "la-liga": normalizeLeagueTable({
+      teams: [
+        {
+          id: "real",
+          name: "ריאל מדריד",
+          athletes: [
+            { id: "mbappe", name: "אמבפה", maxSpeedKmh: 38 },
+            { id: "saka", name: "סאקה", maxSpeedKmh: 34.4 },
+          ],
+        },
+      ],
+    }),
+    nba: normalizeLeagueTable({
+      teams: [
+        {
+          id: "spurs",
+          name: "סן אנטוניו",
+          athletes: [{ id: "fox", name: "פוקס", maxSpeedKmh: 33 }],
+        },
+      ],
+    }),
+  };
+
+  const all = buildAthletePool(tables, catalog, {});
+  assert.equal(all.length, 5);
+  assert.equal(all[0].name, "אמבפה");
+
+  const football = buildAthletePool(tables, catalog, { sport: "football" });
+  assert.equal(football.length, 4);
+  assert.ok(football.every((a) => a.sport === "football"));
+
+  const league = buildAthletePool(tables, catalog, { leagueId: "premier-league" });
+  assert.equal(league.length, 2);
+  assert.ok(league.every((a) => a.leagueId === "premier-league"));
+
+  const team = buildAthletePool(tables, catalog, { sport: "football", team: "ארסנל" });
+  assert.equal(team.length, 1);
+  assert.ok(team.every((a) => a.team === "ארסנל"));
+
+  const opts = filterOptions(tables, catalog, { sport: "football" });
+  assert.deepEqual(opts.sports, ["football", "basketball"]);
+  assert.equal(opts.leagues.length, 2);
+  assert.ok(opts.teams.includes("ריאל מדריד"));
+  assert.equal(describeFilters({ sport: "football", team: "ארסנל" }, catalog), "כדורגל · ארסנל");
+
+  const ranked = rankAgainstTable(35, football);
+  assert.equal(ranked.place, 3);
+  assert.equal(ranked.total, 5);
+  assert.equal(ranked.fasterThan.name, "סאקה");
+});
+
 test("records boards rank me locally, globally and among friends", async () => {
   const { buildBoards } = await import("../js/records.js");
   const catalog = {

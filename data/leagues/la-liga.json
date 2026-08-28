@@ -1,0 +1,62 @@
+{
+  "id": "la-liga",
+  "name": "לה ליגה",
+  "sport": "football",
+  "disclaimer": "מהירויות שיא משוערות לפי דיווחי מועדונים ועיתונות — להשוואה בלבד.",
+  "teams": [
+    {
+      "id": "real-madrid",
+      "name": "ריאל מדריד",
+      "athletes": [
+        { "id": "mbappe", "name": "קיליאן אמבפה", "maxSpeedKmh": 38.0 },
+        { "id": "vinicius", "name": "ויניסיוס ג'וניור", "maxSpeedKmh": 35.1 },
+        { "id": "rodrygo", "name": "רודריגו", "maxSpeedKmh": 34.2 },
+        { "id": "bellingham", "name": "ג'וד בלינגהאם", "maxSpeedKmh": 32.9 },
+        { "id": "valverde", "name": "פדריקו ואלברדה", "maxSpeedKmh": 34.0 }
+      ]
+    },
+    {
+      "id": "barcelona",
+      "name": "ברצלונה",
+      "athletes": [
+        { "id": "yamal", "name": "לאמין ימאל", "maxSpeedKmh": 33.8 },
+        { "id": "balde", "name": "אלחנדרו באלדה", "maxSpeedKmh": 35.0 },
+        { "id": "raphinha", "name": "רפיניה", "maxSpeedKmh": 33.5 },
+        { "id": "lewandowski", "name": "רוברט לבנדובסקי", "maxSpeedKmh": 31.2 },
+        { "id": "pedri", "name": "פדרי", "maxSpeedKmh": 31.5 }
+      ]
+    },
+    {
+      "id": "atletico",
+      "name": "אתלטיקו מדריד",
+      "athletes": [
+        { "id": "griezmann", "name": "אנטואן גריזמן", "maxSpeedKmh": 32.0 },
+        { "id": "alvarez", "name": "חוליאן אלברס", "maxSpeedKmh": 33.1 },
+        { "id": "lino", "name": "סמואל לינו", "maxSpeedKmh": 34.4 }
+      ]
+    },
+    {
+      "id": "athletic",
+      "name": "אתלטיק בילבאו",
+      "athletes": [
+        { "id": "nico-williams", "name": "ניקו ויליאמס", "maxSpeedKmh": 35.7 },
+        { "id": "inaki-williams", "name": "אינאקי ויליאמס", "maxSpeedKmh": 34.9 }
+      ]
+    },
+    {
+      "id": "girona",
+      "name": "חירונה",
+      "athletes": [
+        { "id": "tsygankov", "name": "ויקטור ציגנקוב", "maxSpeedKmh": 33.2 }
+      ]
+    },
+    {
+      "id": "real-sociedad",
+      "name": "ריאל סוסיאדד",
+      "athletes": [
+        { "id": "kubo", "name": "טאקהפוסה קובו", "maxSpeedKmh": 33.0 },
+        { "id": "oyarzabal", "name": "מיקל אויארסאבאל", "maxSpeedKmh": 31.8 }
+      ]
+    }
+  ]
+}

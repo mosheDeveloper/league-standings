@@ -1,0 +1,58 @@
+{
+  "id": "israeli-premier",
+  "name": "ליגת העל",
+  "sport": "football",
+  "disclaimer": "הערכות לצורכי השוואה בלבד לפי דיווחים מקומיים.",
+  "teams": [
+    {
+      "id": "maccabi-ta",
+      "name": "מכבי ת\"א",
+      "athletes": [
+        { "id": "safouri", "name": "רמזי ספורי", "maxSpeedKmh": 33.2 },
+        { "id": "peretz", "name": "דור פרץ", "maxSpeedKmh": 31.8 },
+        { "id": "biton", "name": "דן ביטון", "maxSpeedKmh": 31.4 },
+        { "id": "zahavi", "name": "ערן זהבי", "maxSpeedKmh": 30.8 },
+        { "id": "davida", "name": "אושר דוידה", "maxSpeedKmh": 32.0 }
+      ]
+    },
+    {
+      "id": "maccabi-haifa",
+      "name": "מכבי חיפה",
+      "athletes": [
+        { "id": "david", "name": "דין דוד", "maxSpeedKmh": 31.6 }
+      ]
+    },
+    {
+      "id": "beitar",
+      "name": "בית\"ר ירושלים",
+      "athletes": [
+        { "id": "shua", "name": "ירדן שועה", "maxSpeedKmh": 31.3 },
+        { "id": "weissman", "name": "שון וייסמן", "maxSpeedKmh": 32.1 }
+      ]
+    },
+    {
+      "id": "hapoel-bs",
+      "name": "הפועל ב\"ש",
+      "athletes": [
+        { "id": "haziza", "name": "דולב חזיזה", "maxSpeedKmh": 32.4 },
+        { "id": "gordana", "name": "רועי גורדנה", "maxSpeedKmh": 31.0 },
+        { "id": "hemed", "name": "טומר חמד", "maxSpeedKmh": 30.2 }
+      ]
+    },
+    {
+      "id": "maccabi-nt",
+      "name": "מכבי נתניה",
+      "athletes": [
+        { "id": "almog", "name": "אילון אלמוג", "maxSpeedKmh": 30.9 }
+      ]
+    },
+    {
+      "id": "hapoel-ta",
+      "name": "הפועל ת\"א",
+      "athletes": [
+        { "id": "oz-biton", "name": "עוז ביטון", "maxSpeedKmh": 31.5 },
+        { "id": "altman", "name": "אומרי אלטמן", "maxSpeedKmh": 30.7 }
+      ]
+    }
+  ]
+}

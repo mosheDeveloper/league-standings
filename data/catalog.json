@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "disclaimer": "המהירויות משוערות לפי דיווחים ציבוריים — להשוואה ולהשראה בלבד.",
+  "sports": [
+    {
+      "id": "athletics",
+      "name": "אתלטיקה",
+      "kind": "stars",
+      "hideTeams": true,
+      "leagues": [
+        {
+          "id": "athletics-stars",
+          "name": "כוכבים",
+          "file": "data/leagues/athletics-stars.json",
+          "blurb": "ספרינטרים בולטים מהעולם"
+        }
+      ]
+    },
+    {
+      "id": "football",
+      "name": "כדורגל",
+      "kind": "leagues",
+      "leagues": [
+        {
+          "id": "premier-league",
+          "name": "פרמייר ליג",
+          "file": "data/leagues/premier-league.json",
+          "blurb": "קבוצות וספורטאים עם שיא מהירות מדווח"
+        },
+        {
+          "id": "la-liga",
+          "name": "לה ליגה",
+          "file": "data/leagues/la-liga.json",
+          "blurb": "ריאל, ברצלונה ועוד"
+        },
+        {
+          "id": "israeli-premier",
+          "name": "ליגת העל",
+          "file": "data/leagues/israeli-premier.json",
+          "blurb": "קבוצות ישראליות"
+        },
+        {
+          "id": "football-world",
+          "name": "כוכבים בעולם",
+          "file": "data/leagues/football-world.json",
+          "blurb": "שחקנים מליגות נוספות (אירופה, ארה״ב ועוד)"
+        }
+      ]
+    },
+    {
+      "id": "basketball",
+      "name": "כדורסל",
+      "kind": "leagues",
+      "leagues": [
+        {
+          "id": "nba",
+          "name": "NBA",
+          "file": "data/leagues/nba.json",
+          "blurb": "קבוצות וכוכבים עם הערכת מהירות ריצה"
+        }
+      ]
+    }
+  ]
+}
