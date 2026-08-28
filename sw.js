@@ -1,4 +1,4 @@
-const CACHE = "sprint-max-v12";
+const CACHE = "sprint-max-v13";
 const ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const ASSETS = [
   "./js/share.js",
   "./js/auth.js",
   "./js/records.js",
+  "./js/community.js",
   "./js/pr-progress.js",
   "./js/simulator.js",
   "./manifest.webmanifest",

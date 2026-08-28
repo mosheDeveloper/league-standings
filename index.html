@@ -8,6 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="description" content="מדדו מהירות ריצה מול ספורטאים. שתפו את השיא." />
+  <meta property="og:title" content="Sprint Max" />
+  <meta property="og:description" content="מדדו מהירות ריצה מול ספורטאים. שתפו את השיא." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
   <title>Sprint Max</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
@@ -181,12 +185,13 @@
     <div class="sheet-bg" data-close-sheet></div>
     <div class="sheet-card" role="dialog" aria-label="שיתוף">
       <div class="sheet-handle"></div>
-      <h2>איפה לשתף?</h2>
-      <p class="hint">נפתח את הרשת שבחרתם עם הכרטיס והטקסט — כולל הזמנה לחברים למדוד גם.</p>
+      <h2>איפה לפרסם?</h2>
+      <p class="hint">Facebook מפרסם דרך דיאלוג Meta (אחרי התחברות עם App ID). Instagram / TikTok מקבלים את כרטיס הסטורי דרך שיתוף המערכת.</p>
       <div class="platforms">
         <button type="button" data-platform="whatsapp"><i class="wa">W</i>WhatsApp</button>
         <button type="button" data-platform="instagram"><i class="ig">IG</i>Instagram</button>
         <button type="button" data-platform="facebook"><i class="fb">f</i>Facebook</button>
+        <button type="button" data-platform="messenger"><i class="msg">m</i>Messenger</button>
         <button type="button" data-platform="x"><i class="x">𝕏</i>X</button>
         <button type="button" data-platform="tiktok"><i class="tt">♪</i>TikTok</button>
         <button type="button" data-platform="telegram"><i class="tg">✈</i>Telegram</button>
@@ -215,16 +220,23 @@
     <div class="sheet-card" role="dialog" aria-label="התחברות">
       <div class="sheet-handle"></div>
       <h2 id="login-title">התחברות</h2>
-      <p class="hint">פייסבוק ואינסטגרם מאפשרים להשוות שיאים מול חברים שגם משתמשים ב־Sprint Max. אפשר גם להמשיך כאורח בלי השוואת חברים.</p>
+      <p class="hint">התחברות Meta שואבת שם, תמונה וחברים שגם משתמשים ב־Sprint Max. בלי App ID הכפתורים לא יעבדו — אין יותר התחברות מדומה.</p>
       <button class="social-login fb" id="btn-login-fb" type="button">התחברות עם Facebook</button>
-      <button class="social-login ig" id="btn-login-ig" type="button">התחברות עם Instagram</button>
+      <button class="social-login ig" id="btn-login-ig" type="button">התחברות עם Instagram (Meta)</button>
       <button class="social-login guest" id="btn-login-guest" type="button">המשך כאורח</button>
-      <label class="field-lab" for="login-name">שם לתצוגה</label>
+      <label class="field-lab" for="login-name">שם לתצוגה (לאורח)</label>
       <input id="login-name" maxlength="24" placeholder="למשל: משה" />
+      <div id="meta-setup" class="meta-setup">
+        <label class="field-lab" for="meta-app-id">מזהה אפליקציית Meta (App ID)</label>
+        <input id="meta-app-id" inputmode="numeric" autocomplete="off" placeholder="למשל: 123456789012345" />
+        <button class="ghost-wide" id="btn-save-meta-app" type="button">שמירת App ID במכשיר</button>
+        <p class="meta-setup-status" id="meta-setup-status" data-state="warn"></p>
+      </div>
       <button class="text-btn" id="btn-logout" type="button" hidden>התנתקות</button>
       <button class="ghost-wide" data-close-login type="button">סגירה</button>
     </div>
   </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>
