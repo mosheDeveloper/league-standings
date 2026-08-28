@@ -33,7 +33,7 @@
         </div>
       </header>
 
-      <p class="hint home-lead">מדדו מהירות ריצה. אחרי ריצה — השוו מול מקצוענים במסך <strong>מקצוענים</strong>.</p>
+      <p class="hint home-lead">מדדו מהירות ריצה, ואז השוו מול מקצוענים במסך <strong>מקצוענים</strong>.</p>
       <select id="table-select" class="sr-only" aria-hidden="true" tabindex="-1"></select>
 
       <div class="go">
@@ -48,7 +48,6 @@
         <p id="gps-status-text">בודקים קליטת GPS…</p>
         <button type="button" class="text-btn" id="btn-gps-retry">בדיקת מיקום</button>
       </div>
-      <p class="hint" id="profile-box"></p>
     </section>
 
     <section class="view view-run" data-view="run">
@@ -76,7 +75,7 @@
         <p class="result-copy" id="result-msg"></p>
         <div class="stats two">
           <div><em>מקום</em><b id="result-place">—</b></div>
-          <div><em>חיישנים</em><b id="cadence-out">—</b></div>
+          <div><em>סטטוס</em><b id="result-status">—</b></div>
         </div>
       </div>
 
@@ -123,7 +122,7 @@
 
     <section class="view" data-view="tables">
       <h1 class="page-title">מקצוענים</h1>
-      <p class="hint">בחרו ענף → ליגה → קבוצה. הסולם מציג ספורטאים עם שיא מהירות שמור במסד המקומי (JSON).</p>
+      <p class="hint">בחרו ענף, ליגה וקבוצה — והשוו את השיא שלכם מול ספורטאים.</p>
 
       <div class="filter-stack" id="compare-filters">
         <div class="filter-row">
@@ -144,19 +143,6 @@
       <p class="hint" id="compare-scope"></p>
       <ul class="ladder" id="compare-ladder"></ul>
       <p class="hint" id="compare-disclaimer"></p>
-
-      <details class="advanced">
-        <summary>עריכת JSON מקומי</summary>
-        <p class="hint">המסד כולו בקובצי JSON תחת data/ — בלי משיכה חיה מהרשת.</p>
-        <select id="editor-select"></select>
-        <textarea id="json-editor" spellcheck="false"></textarea>
-        <div class="btn-row">
-          <button class="cta compact" id="btn-save-json" type="button">שמירה</button>
-          <button class="ghost-wide compact" id="btn-reset-json" type="button">איפוס</button>
-          <button class="ghost-wide compact" id="btn-export" type="button">ייצוא</button>
-        </div>
-        <label class="file-lab">ייבוא <input id="import-file" type="file" accept="application/json" /></label>
-      </details>
     </section>
 
     <section class="view" data-view="training">
@@ -229,7 +215,7 @@
     <div class="sheet-card" role="dialog" aria-label="התחברות">
       <div class="sheet-handle"></div>
       <h2 id="login-title">התחברות</h2>
-      <p class="hint">פייסבוק ואינסטגרם יבקשו לראות את השם שלכם ואת החברים שגם משתמשים ב־Sprint Max — כדי לבנות לוח שיאי חברים. אפשר גם להמשיך כאורח בלי השוואת חברים.</p>
+      <p class="hint">פייסבוק ואינסטגרם מאפשרים להשוות שיאים מול חברים שגם משתמשים ב־Sprint Max. אפשר גם להמשיך כאורח בלי השוואת חברים.</p>
       <button class="social-login fb" id="btn-login-fb" type="button">התחברות עם Facebook</button>
       <button class="social-login ig" id="btn-login-ig" type="button">התחברות עם Instagram</button>
       <button class="social-login guest" id="btn-login-guest" type="button">המשך כאורח</button>

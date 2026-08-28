@@ -2,72 +2,78 @@
   "id": "nba",
   "name": "NBA",
   "sport": "basketball",
-  "disclaimer": "הערכות מהירות ריצה מקסימלית לפי דיווחים ציבוריים (לא מדידת לייזר רשמית). נתונים סטטיים באפליקציה.",
+  "disclaimer": "הערכות מהירות ריצה מקסימלית לפי דיווחים ציבוריים — להשוואה בלבד.",
   "teams": [
     {
       "id": "spurs",
       "name": "סן אנטוניו",
       "athletes": [
-        { "id": "fox", "name": "די'ארון פוקס", "maxSpeedKmh": 33.4, "note": "הערכה מדווחת" },
-        { "id": "wembanyama", "name": "ויקטור וומבאניאמה", "maxSpeedKmh": 29.8, "note": "הערכה מדווחת" },
-        { "id": "castle", "name": "סטפון קאסל", "maxSpeedKmh": 31.5, "note": "הערכה מדווחת" }
+        { "id": "fox", "name": "די'ארון פוקס", "maxSpeedKmh": 33.4 },
+        { "id": "wembanyama", "name": "ויקטור וומבאניאמה", "maxSpeedKmh": 29.8 },
+        { "id": "castle", "name": "סטפון קאסל", "maxSpeedKmh": 31.5 }
       ]
     },
     {
       "id": "grizzlies",
       "name": "ממפיס",
       "athletes": [
-        { "id": "morant", "name": "ג'ה מורנט", "maxSpeedKmh": 33.1, "note": "הערכה מדווחת" },
-        { "id": "bane", "name": "דזמונד ביין", "maxSpeedKmh": 31.2, "note": "הערכה מדווחת" }
+        { "id": "morant", "name": "ג'ה מורנט", "maxSpeedKmh": 33.1 },
+        { "id": "bane", "name": "דזמונד ביין", "maxSpeedKmh": 31.2 }
       ]
     },
     {
       "id": "timberwolves",
       "name": "מינסוטה",
       "athletes": [
-        { "id": "ant", "name": "אנתוני אדוארדס", "maxSpeedKmh": 32.8, "note": "הערכה מדווחת" },
-        { "id": "mcdaniels", "name": "ג'אדן מקדניאלס", "maxSpeedKmh": 31.4, "note": "הערכה מדווחת" }
+        { "id": "ant", "name": "אנתוני אדוארדס", "maxSpeedKmh": 32.8 },
+        { "id": "mcdaniels", "name": "ג'אדן מקדניאלס", "maxSpeedKmh": 31.4 }
       ]
     },
     {
       "id": "celtics",
       "name": "בוסטון",
       "athletes": [
-        { "id": "brown", "name": "ג'לן בראון", "maxSpeedKmh": 32.2, "note": "הערכה מדווחת" },
-        { "id": "tatum", "name": "ג'ייסון טייטום", "maxSpeedKmh": 31.6, "note": "הערכה מדווחת" },
-        { "id": "white", "name": "דריק וייט", "maxSpeedKmh": 30.9, "note": "הערכה מדווחת" }
+        { "id": "brown", "name": "ג'יילן בראון", "maxSpeedKmh": 32.2 },
+        { "id": "tatum", "name": "ג'ייסון טייטום", "maxSpeedKmh": 31.6 },
+        { "id": "white", "name": "דריק וייט", "maxSpeedKmh": 30.9 }
       ]
     },
     {
       "id": "warriors",
       "name": "גולדן סטייט",
       "athletes": [
-        { "id": "curry", "name": "סטף קרי", "maxSpeedKmh": 30.8, "note": "הערכה מדווחת" },
-        { "id": "podz", "name": "ברנדון פודזיימסקי", "maxSpeedKmh": 31.0, "note": "הערכה מדווחת" }
+        { "id": "curry", "name": "סטף קרי", "maxSpeedKmh": 30.8 },
+        { "id": "podz", "name": "ברנדון פודזיימסקי", "maxSpeedKmh": 31.0 }
       ]
     },
     {
       "id": "lakers",
       "name": "לייקרס",
       "athletes": [
-        { "id": "lebron", "name": "לברון ג'יימס", "maxSpeedKmh": 31.2, "note": "הערכה מדווחת" },
-        { "id": "reeves", "name": "אוסטין ריבס", "maxSpeedKmh": 30.6, "note": "הערכה מדווחת" }
+        { "id": "lebron", "name": "לברון ג'יימס", "maxSpeedKmh": 31.2 },
+        { "id": "reeves", "name": "אוסטין ריבס", "maxSpeedKmh": 30.6 }
       ]
     },
     {
       "id": "bucks",
       "name": "מילווקי",
       "athletes": [
-        { "id": "giannis", "name": "יאניס אדטוקומבו", "maxSpeedKmh": 31.9, "note": "הערכה מדווחת" },
-        { "id": "lillard", "name": "דמיאן לילארד", "maxSpeedKmh": 30.4, "note": "הערכה מדווחת" }
+        { "id": "giannis", "name": "יאניס אדטוקומבו", "maxSpeedKmh": 31.9 }
+      ]
+    },
+    {
+      "id": "blazers",
+      "name": "פורטלנד",
+      "athletes": [
+        { "id": "lillard", "name": "דמיאן לילארד", "maxSpeedKmh": 30.4 }
       ]
     },
     {
       "id": "thunder",
       "name": "אוקלהומה",
       "athletes": [
-        { "id": "sga", "name": "שיי גילג'ס-אלכסנדר", "maxSpeedKmh": 31.4, "note": "הערכה מדווחת" },
-        { "id": "jdup", "name": "ג'אלן וויליאמס", "maxSpeedKmh": 31.1, "note": "הערכה מדווחת" }
+        { "id": "sga", "name": "שיי גילג'ס-אלכסנדר", "maxSpeedKmh": 31.4 },
+        { "id": "jdup", "name": "ג'יילן וויליאמס", "maxSpeedKmh": 31.1 }
       ]
     }
   ]

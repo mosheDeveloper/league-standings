@@ -215,7 +215,7 @@ export function analyzeRun(session = {}) {
   } else if (flags.includes("profile_violation")) {
     valid = false;
     label = "profile";
-    messageHe = "המהירות חורגת בהרבה מהפרופיל שלך ובלי סימני ריצה.";
+    messageHe = "המהירות גבוהה מדי ביחס לריצות הקודמות שלך, ובלי סימני ריצה.";
   }
 
   const rounded = Math.round(maxSpeedKmh * 10) / 10;

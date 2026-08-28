@@ -2,108 +2,93 @@
   "id": "premier-league",
   "name": "פרמייר ליג",
   "sport": "football",
-  "disclaimer": "מהירויות שיא משוערות לפי דיווחי ליגה, אופטה ועיתונות. לא מדידת GPS אחידה. נתונים סטטיים באפליקציה.",
+  "disclaimer": "מהירויות שיא משוערות לפי דיווחי ליגה ועיתונות — להשוואה בלבד.",
   "teams": [
     {
       "id": "newcastle",
       "name": "ניוקאסל",
       "athletes": [
-        { "id": "gordon", "name": "אנתוני גורדון", "maxSpeedKmh": 36.6, "note": "דיווחי שיא עונתיים" },
-        { "id": "livramento", "name": "טינו ליברמנטו", "maxSpeedKmh": 35.2, "note": "הערכה מדווחת" },
-        { "id": "burn", "name": "דן ברן", "maxSpeedKmh": 32.1, "note": "הערכה מדווחת" }
+        { "id": "gordon", "name": "אנתוני גורדון", "maxSpeedKmh": 36.6 },
+        { "id": "livramento", "name": "טינו ליברמנטו", "maxSpeedKmh": 35.2 },
+        { "id": "burn", "name": "דן ברן", "maxSpeedKmh": 32.1 }
       ]
     },
     {
       "id": "liverpool",
       "name": "ליברפול",
       "athletes": [
-        { "id": "isak", "name": "אלכסנדר איסאק", "maxSpeedKmh": 35.4, "note": "הערכה מדווחת" },
-        { "id": "diaz", "name": "לואיס דיאס", "maxSpeedKmh": 35.5, "note": "הערכה מדווחת" },
-        { "id": "nunez", "name": "דרווין נונייז", "maxSpeedKmh": 35.0, "note": "הערכה מדווחת" },
-        { "id": "salah", "name": "מוחמד סלאח", "maxSpeedKmh": 33.5, "note": "הערכה מדווחת" },
-        { "id": "szoboszlai", "name": "דומיניק סובוסלאי", "maxSpeedKmh": 33.8, "note": "הערכה מדווחת" }
+        { "id": "isak", "name": "אלכסנדר איסאק", "maxSpeedKmh": 35.4 },
+        { "id": "diaz", "name": "לואיס דיאס", "maxSpeedKmh": 35.5 },
+        { "id": "nunez", "name": "דרווין נונייז", "maxSpeedKmh": 35.0 },
+        { "id": "salah", "name": "מוחמד סלאח", "maxSpeedKmh": 33.5 },
+        { "id": "szoboszlai", "name": "דומיניק סובוסלאי", "maxSpeedKmh": 33.8 }
       ]
     },
     {
       "id": "man-city",
       "name": "מנצ'סטר סיטי",
       "athletes": [
-        { "id": "haaland", "name": "ארלינג הולאנד", "maxSpeedKmh": 36.2, "note": "הערכה מדווחת" },
-        { "id": "doku", "name": "ז'רמי דוקו", "maxSpeedKmh": 36.0, "note": "הערכה מדווחת" },
-        { "id": "foden", "name": "פיל פודן", "maxSpeedKmh": 34.0, "note": "הערכה מדווחת" },
-        { "id": "savinho", "name": "סאביניו", "maxSpeedKmh": 34.6, "note": "הערכה מדווחת" }
+        { "id": "haaland", "name": "ארלינג הולאנד", "maxSpeedKmh": 36.2 },
+        { "id": "doku", "name": "ז'רמי דוקו", "maxSpeedKmh": 36.0 },
+        { "id": "foden", "name": "פיל פודן", "maxSpeedKmh": 34.0 },
+        { "id": "savinho", "name": "סאביניו", "maxSpeedKmh": 34.6 }
       ]
     },
     {
       "id": "tottenham",
       "name": "טוטנהאם",
       "athletes": [
-        { "id": "kulusevski", "name": "דהיאן קולושבסקי", "maxSpeedKmh": 35.8, "note": "הערכה מדווחת" },
-        { "id": "van-de-ven", "name": "מיקי ואן דה פן", "maxSpeedKmh": 35.3, "note": "דיווחי ליגה" },
-        { "id": "son", "name": "סון יונג-מין", "maxSpeedKmh": 34.2, "note": "הערכה מדווחת" },
-        { "id": "johnson", "name": "ברנן ג'ונסון", "maxSpeedKmh": 34.5, "note": "הערכה מדווחת" }
+        { "id": "kulusevski", "name": "דיאן קולושבסקי", "maxSpeedKmh": 35.8 },
+        { "id": "van-de-ven", "name": "מיקי ואן דה פן", "maxSpeedKmh": 35.3 },
+        { "id": "son", "name": "סון יונג-מין", "maxSpeedKmh": 34.2 },
+        { "id": "johnson", "name": "ברנן ג'ונסון", "maxSpeedKmh": 34.5 }
       ]
     },
     {
       "id": "arsenal",
       "name": "ארסנל",
       "athletes": [
-        { "id": "saka", "name": "בוקאיו סאקה", "maxSpeedKmh": 34.4, "note": "הערכה מדווחת" },
-        { "id": "martinelli", "name": "גבריאל מרטינלי", "maxSpeedKmh": 33.9, "note": "הערכה מדווחת" },
-        { "id": "trossard", "name": "לנדרו טרוסארד", "maxSpeedKmh": 32.8, "note": "הערכה מדווחת" },
-        { "id": "odegaard", "name": "מרטין אודגור", "maxSpeedKmh": 31.8, "note": "הערכה מדווחת" },
-        { "id": "white", "name": "בן וייט", "maxSpeedKmh": 32.4, "note": "הערכה מדווחת" }
+        { "id": "saka", "name": "בוקאיו סאקה", "maxSpeedKmh": 34.4 },
+        { "id": "madueke", "name": "נוני מאדווקה", "maxSpeedKmh": 34.8 },
+        { "id": "martinelli", "name": "גבריאל מרטינלי", "maxSpeedKmh": 33.9 },
+        { "id": "trossard", "name": "לנדרו טרוסארד", "maxSpeedKmh": 32.8 },
+        { "id": "odegaard", "name": "מרטין אודגור", "maxSpeedKmh": 31.8 },
+        { "id": "white", "name": "בן וייט", "maxSpeedKmh": 32.4 }
       ]
     },
     {
       "id": "chelsea",
       "name": "צ'לסי",
       "athletes": [
-        { "id": "palmer", "name": "קול פאלמר", "maxSpeedKmh": 33.1, "note": "הערכה מדווחת" },
-        { "id": "madueke", "name": "נוני מאדואקה", "maxSpeedKmh": 34.8, "note": "הערכה מדווחת" },
-        { "id": "jackson", "name": "ניקולאס ג'קסון", "maxSpeedKmh": 33.6, "note": "הערכה מדווחת" },
-        { "id": "neto", "name": "פדרו נטו", "maxSpeedKmh": 34.1, "note": "הערכה מדווחת" }
+        { "id": "palmer", "name": "קול פאלמר", "maxSpeedKmh": 33.1 },
+        { "id": "neto", "name": "פדרו נטו", "maxSpeedKmh": 34.1 }
       ]
     },
     {
       "id": "man-utd",
       "name": "מנצ'סטר יונייטד",
       "athletes": [
-        { "id": "garnacho", "name": "אלחנדרו גארנאצ'ו", "maxSpeedKmh": 35.1, "note": "הערכה מדווחת" },
-        { "id": "rashford", "name": "מרקוס רשפורד", "maxSpeedKmh": 35.0, "note": "הערכה מדווחת" },
-        { "id": "mainoo", "name": "קובי מיינו", "maxSpeedKmh": 32.6, "note": "הערכה מדווחת" },
-        { "id": "dalot", "name": "דיוגו דאלוט", "maxSpeedKmh": 33.2, "note": "הערכה מדווחת" }
+        { "id": "garnacho", "name": "אלחנדרו גארנאצ'ו", "maxSpeedKmh": 35.1 },
+        { "id": "rashford", "name": "מרקוס רשפורד", "maxSpeedKmh": 35.0 },
+        { "id": "mainoo", "name": "קובי מיינו", "maxSpeedKmh": 32.6 },
+        { "id": "dalot", "name": "דיוגו דאלוט", "maxSpeedKmh": 33.2 }
       ]
     },
     {
       "id": "aston-villa",
       "name": "אסטון וילה",
       "athletes": [
-        { "id": "diaby", "name": "מוריי דיאבי", "maxSpeedKmh": 35.6, "note": "הערכה מדווחת" },
-        { "id": "roger", "name": "אולי ווטקינס", "maxSpeedKmh": 33.4, "note": "הערכה מדווחת" },
-        { "id": "bailey", "name": "ליאון ביילי", "maxSpeedKmh": 34.0, "note": "הערכה מדווחת" }
+        { "id": "jackson", "name": "ניקולאס ג'קסון", "maxSpeedKmh": 33.6 },
+        { "id": "watkins", "name": "אוליבר ווטקינס", "maxSpeedKmh": 33.4 },
+        { "id": "bailey", "name": "ליאון ביילי", "maxSpeedKmh": 34.0 }
       ]
     },
     {
       "id": "brighton",
       "name": "ברייטון",
       "athletes": [
-        { "id": "mitoma", "name": "קאורו מיטומה", "maxSpeedKmh": 33.7, "note": "הערכה מדווחת" },
-        { "id": "adingra", "name": "סימון אדינגרה", "maxSpeedKmh": 34.3, "note": "הערכה מדווחת" }
-      ]
-    },
-    {
-      "id": "sunderland",
-      "name": "סנדרלנד",
-      "athletes": [
-        { "id": "abed", "name": "ליאל עבדה", "maxSpeedKmh": 33.5, "note": "הערכה מדווחת" }
-      ]
-    },
-    {
-      "id": "leeds",
-      "name": "לידס",
-      "athletes": [
-        { "id": "solomon", "name": "מנואל סולומון", "maxSpeedKmh": 33.8, "note": "הערכה מדווחת" }
+        { "id": "mitoma", "name": "קאורו מיטומה", "maxSpeedKmh": 33.7 },
+        { "id": "adingra", "name": "סימון אדינגרה", "maxSpeedKmh": 34.3 }
       ]
     }
   ]
