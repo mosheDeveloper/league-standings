@@ -1,0 +1,37 @@
+{
+  "title": "שיפור ביצועים",
+  "subtitle": "סרטוני הדרכה והשראה. לחצו על הנגן כדי לצפות.",
+  "columns": 2,
+  "videos": [
+    {
+      "slot": 1,
+      "youtubeId": "yPeEQitu_-o",
+      "title": "מסי — כל השערים במונדיאל 2026"
+    },
+    {
+      "slot": 2,
+      "youtubeId": "dFu8ruX1kaQ",
+      "title": "מסי — 12 שערים ומסירות במונדיאל"
+    },
+    {
+      "slot": 3,
+      "youtubeId": "hoL3rks9QPU",
+      "title": "מסי — 5 שערים במונדיאל 2026"
+    },
+    {
+      "slot": 4,
+      "youtubeId": "DtRgCMoWoMM",
+      "title": "מסי — שערים בשלב הבתים"
+    },
+    {
+      "slot": 5,
+      "youtubeId": "ONDoxgXEMYk",
+      "title": "מסי — הרגעים הטובים במונדיאל"
+    },
+    {
+      "slot": 6,
+      "youtubeId": "Q5mYn9fi6yM",
+      "title": "מסי — כל השערים ב־2026"
+    }
+  ]
+}
