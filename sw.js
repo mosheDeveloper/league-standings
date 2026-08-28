@@ -12,6 +12,7 @@ const ASSETS = [
   "./js/share.js",
   "./js/auth.js",
   "./js/records.js",
+  "./js/community.js",
   "./js/pr-progress.js",
   "./js/simulator.js",
   "./manifest.webmanifest",

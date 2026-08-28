@@ -73,8 +73,8 @@ export function buildBoards({ catalog, session, myKmh }) {
   const global = all;
 
   const friendSeeds = canSeeFriends(session)
-    ? session.friendsFromApi && session.friends?.length
-      ? session.friends.map((f) => {
+    ? session.friendsFromApi
+      ? (session.friends || []).map((f) => {
           const hit = (catalog.users || []).find((u) => u.facebookId === f.id || u.id === f.id);
           return {
             id: f.id,

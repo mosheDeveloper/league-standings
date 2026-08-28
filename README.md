@@ -10,10 +10,15 @@
 - שיתוף: `אתה יותר מהיר מ-[שם]. מהירות הריצה המקסימאלית היא: XXX`.
 - התחברות בפייסבוק / אינסטגרם (הרשאת חברים), או **המשך כאורח**. עמוד **שיאים**: מדינה, עולם, חברים (חברים דורשים חיבור לרשתות).
 
-## התחברות Meta
-ב־[`data/auth.json`](data/auth.json) הזינו `facebookAppId` מאפליקציית Meta, עם הרשאות `public_profile` ו־`user_friends`.
-`user_friends` מחזיר רק חברים שגם הם התחברו ל־Sprint Max (דרישת פייסבוק).
-בלי App ID כפתורי מטא נופלים להתחברות מקומית עם חברים לדוגמה. **אורח** נכנס בלי רשימת חברים, ובמסך שיאי חברים מופיעה הודעה שצריך להתחבר כדי להשוות. קהילת השיאים ב־[`data/records.json`](data/records.json).
+## התחברות ופרסום Meta
+1. צרו אפליקציה ב־[Meta for Developers](https://developers.facebook.com/apps) עם מוצר **Facebook Login**.
+2. הוסיפו את דומיין GitHub Pages (ו־`localhost` לבדיקות) תחת App Domains / Website / Valid OAuth Redirect URIs.
+3. הזינו את ה־**App ID** (מזהה ציבורי) ב־[`data/auth.json`](data/auth.json) כ־`facebookAppId`, או במסך ההתחברות באפליקציה («מזהה אפליקציית Meta»).
+4. הרשאות: `public_profile`, `email`, `user_friends` (בפרודקשן `user_friends` דורש App Review). מחזיר רק חברים שגם התחברו ל־Sprint Max.
+5. **פרסום ל־Facebook**: אחרי App ID, כפתור Facebook פותח את Share Dialog הרשמי של Meta (`FB.ui`) — המשתמש מאשר והפוסט עולה לפיד.
+6. **Instagram**: התחברות דרך אותו Meta Login (שאיבת פרופיל/חברים). פרסום לסטורי אישי בלי חשבון Business נעשה דרך שיתוף המערכת עם כרטיס התמונה (אין Compose API ציבורי לחשבון אישי מהדפדפן).
+7. בלי App ID כפתורי Meta **חסומים** — אין יותר התחברות מדומה. **אורח** נשאר בלי לוח חברים.
+8. סנכרון שיאים בין מכשירים (אופציונלי): פרסו `workers/community.js` ל־Cloudflare Worker + KV, והעתיקו את ה־URL ל־`communityEndpoint` ב־`auth.json`.
 
 ## טבלאות JSON מקומיות (מקצוענים)
 כל מסד המקצוענים סטטי תחת [`data/`](data/) — **בלי משיכה חיה מהרשת בזמן שימוש**:
