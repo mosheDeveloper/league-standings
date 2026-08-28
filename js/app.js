@@ -68,6 +68,7 @@ function toast(msg) {
 }
 
 function showView(name) {
+  if (name !== "training") closeVideoPlayer();
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   document.querySelectorAll("nav.tabbar button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name)
@@ -820,11 +821,74 @@ function renderHistory() {
     .join("");
 }
 
-function youtubeEmbedSrc(videoId) {
+function youtubeEmbedSrc(videoId, { autoplay = false } = {}) {
   const id = String(videoId || "").trim();
   if (!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return "";
-  // Official YouTube embed player (iframe) — required by YouTube ToS.
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`;
+  const params = new URLSearchParams({ rel: "0", modestbranding: "1" });
+  if (autoplay) params.set("autoplay", "1");
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?${params}`;
+}
+
+function youtubeThumbSrc(videoId) {
+  const id = String(videoId || "").trim();
+  if (!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return "";
+  return `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
+}
+
+function openVideoPlayer({ youtubeId, title }) {
+  const overlay = $("video-player");
+  const frame = $("video-player-frame");
+  const titleEl = $("video-player-title");
+  if (!overlay || !frame) return;
+
+  const src = youtubeEmbedSrc(youtubeId, { autoplay: true });
+  if (!src) return;
+
+  if (titleEl) titleEl.textContent = title || "";
+  frame.innerHTML = `<iframe
+    src="${src}"
+    title="${escAttr(title || "סרטון הדרכה")}"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>`;
+  overlay.hidden = false;
+  document.body.classList.add("player-mode");
+}
+
+function closeVideoPlayer() {
+  const overlay = $("video-player");
+  const frame = $("video-player-frame");
+  if (!overlay || overlay.hidden) return;
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.().catch(() => {});
+  }
+  if (frame) frame.innerHTML = "";
+  overlay.hidden = true;
+  document.body.classList.remove("player-mode");
+}
+
+async function toggleVideoFullscreen() {
+  const stage = $("video-player-stage");
+  if (!stage) return;
+  try {
+    if (!document.fullscreenElement) {
+      await (stage.requestFullscreen?.() || stage.webkitRequestFullscreen?.());
+    } else {
+      await (document.exitFullscreen?.() || document.webkitExitFullscreen?.());
+    }
+  } catch {
+    toast("מסך מלא לא זמין בדפדפן זה");
+  }
+}
+
+function syncVideoFullscreenBtn() {
+  const btn = $("btn-video-fs");
+  if (!btn) return;
+  const on = !!document.fullscreenElement;
+  btn.setAttribute("aria-label", on ? "יציאה ממסך מלא" : "מסך מלא");
+  btn.title = on ? "יציאה ממסך מלא" : "מסך מלא";
 }
 
 function renderTraining() {
@@ -853,28 +917,22 @@ function renderTraining() {
 
   host.innerHTML = videos
     .map((v) => {
-      const src = youtubeEmbedSrc(v.youtubeId);
-      if (!src) {
-        return `<article class="training-card" data-slot="${v.slot}">
+      const thumb = youtubeThumbSrc(v.youtubeId);
+      if (!thumb) {
+        return `<article class="training-card" data-slot="${v.slot}" disabled>
           <span class="training-slot">${v.slot}</span>
           <div class="training-frame"></div>
           <p class="training-title">${escAttr(v.title)}</p>
         </article>`;
       }
-      return `<article class="training-card" data-slot="${v.slot}">
+      return `<button type="button" class="training-card" data-slot="${v.slot}" data-youtube-id="${escAttr(v.youtubeId)}" data-title="${escAttr(v.title)}" aria-label="פתיחת ${escAttr(v.title)}">
         <span class="training-slot">${v.slot}</span>
         <div class="training-frame">
-          <iframe
-            src="${src}"
-            title="${escAttr(v.title)}"
-            loading="lazy"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerpolicy="strict-origin-when-cross-origin"
-            allowfullscreen
-          ></iframe>
+          <img src="${thumb}" alt="" loading="lazy" />
+          <span class="training-play" aria-hidden="true"></span>
         </div>
         <p class="training-title">${escAttr(v.title)}</p>
-      </article>`;
+      </button>`;
     })
     .join("");
 }
@@ -973,6 +1031,29 @@ function wireUi() {
       showView(v);
     })
   );
+  $("training-grid")?.addEventListener("click", (e) => {
+    const card = e.target.closest(".training-card[data-youtube-id]");
+    if (!card) return;
+    openVideoPlayer({
+      youtubeId: card.dataset.youtubeId,
+      title: card.dataset.title,
+    });
+  });
+  $("btn-video-close")?.addEventListener("click", closeVideoPlayer);
+  $("btn-video-fs")?.addEventListener("click", toggleVideoFullscreen);
+  $("video-player")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-video]")) closeVideoPlayer();
+  });
+  document.addEventListener("fullscreenchange", syncVideoFullscreenBtn);
+  document.addEventListener("keydown", (e) => {
+    const overlay = $("video-player");
+    if (!overlay || overlay.hidden || e.key !== "Escape") return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+      return;
+    }
+    closeVideoPlayer();
+  });
   $("btn-open-share")?.addEventListener("click", openShareSheet);
   $("share-sheet")?.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-sheet]")) closeShareSheet();
