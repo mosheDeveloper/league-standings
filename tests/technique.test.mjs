@@ -133,10 +133,23 @@ test("techniqueHistoryRows returns newest first for an exercise", () => {
   );
 });
 
-test("techniqueExecutionAccuracy uses session score when present", () => {
-  assert.equal(techniqueExecutionAccuracy({ score: 90 }), 90);
-  assert.equal(techniqueExecutionAccuracy({ score: null }), 0);
-  assert.equal(techniqueExecutionAccuracy({}), TECHNIQUE_RECORD_MIN_ACCURACY);
+test("techniqueExecutionAccuracy uses provisional 90% for completed pending_model sessions", () => {
+  assert.equal(techniqueExecutionAccuracy({ score: 40, scoreStatus: "pending_model", durationMs: 4000 }), 90);
+  assert.equal(techniqueExecutionAccuracy({ score: 90, scoreStatus: "pending_model", durationMs: 4000 }), 90);
+  assert.equal(techniqueExecutionAccuracy({ score: null, scoreStatus: "pending_model", durationMs: 500 }), 0);
+  assert.equal(techniqueExecutionAccuracy({ durationMs: 4000 }), 90);
+});
+
+test("ascendingTechniqueTimeRecords includes legacy low-score pending_model sessions", () => {
+  const sessions = [
+    { id: "a", at: "2026-01-01T00:00:00.000Z", exerciseId: "slalom_one_foot", durationMs: 9000, score: 35, scoreStatus: "pending_model" },
+    { id: "b", at: "2026-01-02T00:00:00.000Z", exerciseId: "slalom_one_foot", durationMs: 8500, score: 42, scoreStatus: "pending_model" },
+  ];
+  const records = ascendingTechniqueTimeRecords(sessions, "slalom_one_foot");
+  assert.deepEqual(
+    records.map((p) => p.id),
+    ["a", "b"]
+  );
 });
 
 test("ascendingTechniqueTimeRecords keeps only improving fastest times", () => {

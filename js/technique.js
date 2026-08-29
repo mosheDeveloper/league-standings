@@ -154,14 +154,22 @@ export const PROVISIONAL_TECHNIQUE_ACCURACY = 90;
 
 /**
  * Execution accuracy for chart eligibility and history labels.
- * Uses stored session score when present; legacy sessions without score keep the provisional default.
+ * Until a real model exists, completed pending_model sessions use the provisional 90%.
  */
 export function techniqueExecutionAccuracy(session) {
-  if (session && "score" in session) {
-    const score = Number(session.score);
-    return Number.isFinite(score) ? score : 0;
+  if (!session) return 0;
+  const durationMs = Number(session.durationMs);
+  const completed = Number.isFinite(durationMs) && durationMs >= 1500;
+  const status = session.scoreStatus || session.exercise?.scoring?.status || "pending_model";
+
+  if (status === "pending_model" && completed) {
+    return PROVISIONAL_TECHNIQUE_ACCURACY;
   }
-  return PROVISIONAL_TECHNIQUE_ACCURACY;
+
+  const score = Number(session.score);
+  if (Number.isFinite(score)) return score;
+  if (!("score" in session) && completed) return PROVISIONAL_TECHNIQUE_ACCURACY;
+  return 0;
 }
 
 export function isEligibleTechniqueTimeRecord(session, exerciseId) {
