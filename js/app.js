@@ -781,7 +781,7 @@ function improveChartOptions() {
       label: ex.name,
       title: `זמן ביצוע — ${ex.name}`,
       sub: "הגרף מציג את משך הביצוע בשניות.",
-      tip: `לגרף נכנסים רק ביצועים שרמת הדיוק שלהם עולה על ${TECHNIQUE_CHART_MIN_SCORE}%. שאר הביצועים נשמרים בהיסטוריה למטה.`,
+      tip: `לגרף נכנסים רק ביצועים שרמת הדיוק שלהם ${TECHNIQUE_CHART_MIN_SCORE}% ומעלה. שאר הביצועים נשמרים בהיסטוריה למטה.`,
       kind: "technique",
       exerciseId: ex.id,
       historyTitle: `היסטוריה — ${ex.name}`,
@@ -886,7 +886,7 @@ function renderImproveChart() {
     });
     renderGenericLineChart(host, points, {
       valueSuffix: "",
-      emptyHtml: `<div class="pr-chart-empty">עדיין אין ביצועים עם דיוק מעל ${TECHNIQUE_CHART_MIN_SCORE}% לתרגיל זה.<br>השלימו מדידה מדויקת במסך טכניקה.</div>`,
+      emptyHtml: `<div class="pr-chart-empty">עדיין אין ביצועים עם דיוק ${TECHNIQUE_CHART_MIN_SCORE}% ומעלה לתרגיל זה.<br>השלימו מדידה במסך טכניקה.</div>`,
     });
   }
 }
@@ -936,11 +936,11 @@ function renderImproveHistory() {
       .map((s) => {
         const accuracy = formatAccuracyLabel(s.score);
         const onChart =
-          Number.isFinite(s.score) && s.score > TECHNIQUE_CHART_MIN_SCORE ? "בגרף" : "לא בגרף";
+          Number.isFinite(s.score) && s.score >= TECHNIQUE_CHART_MIN_SCORE ? "בגרף" : "לא בגרף";
         const scoreClass =
           s.score == null
             ? "pending"
-            : s.score > TECHNIQUE_CHART_MIN_SCORE
+            : s.score >= TECHNIQUE_CHART_MIN_SCORE
               ? "accuracy-high"
               : "accuracy-low";
         return `<li>
@@ -1072,7 +1072,7 @@ function renderTechniqueHistory() {
       const scoreClass =
         s.score == null
           ? "pending"
-          : s.score > TECHNIQUE_CHART_MIN_SCORE
+          : s.score >= TECHNIQUE_CHART_MIN_SCORE
             ? "accuracy-high"
             : "accuracy-low";
       return `<li class="tech-hist-row">
@@ -1213,10 +1213,10 @@ async function stopTechniqueRun() {
     scoring.score == null ? "ממתין למודל" : `${scoring.score}%`;
   $("technique-duration").textContent = formatDurationMs(raw.durationMs);
   const chartNote =
-    scoring.score != null && scoring.score > TECHNIQUE_CHART_MIN_SCORE
-      ? `רמת הדיוק מעל ${TECHNIQUE_CHART_MIN_SCORE}% — הביצוע ייכנס לגרף בשיפור.`
+    scoring.score != null && scoring.score >= TECHNIQUE_CHART_MIN_SCORE
+      ? `רמת דיוק ${TECHNIQUE_CHART_MIN_SCORE}% ומעלה — הביצוע ייכנס לגרף בשיפור.`
       : scoring.score != null
-        ? `רמת דיוק עד ${TECHNIQUE_CHART_MIN_SCORE}% לא נכנסת לגרף — רק להיסטוריה.`
+        ? `רמת דיוק מתחת ל-${TECHNIQUE_CHART_MIN_SCORE}% לא נכנסת לגרף — רק להיסטוריה.`
         : "";
   $("technique-score-note").textContent = [scoring.noteHe || "", chartNote].filter(Boolean).join(" ");
   renderTechniqueHistory();
