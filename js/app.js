@@ -764,7 +764,7 @@ function bindPrPointGestures(root) {
   });
 }
 
-function renderGenericLineChart(host, points, { formatValue, emptyHtml = "" } = {}) {
+function renderGenericLineChart(host, points, { formatValue, emptyHtml = "", lowerIsBetter = false } = {}) {
   if (!points.length) {
     host.innerHTML = emptyHtml || `<div class="pr-chart-empty">אין עדיין נקודות לגרף זה.</div>`;
     return;
@@ -784,7 +784,8 @@ function renderGenericLineChart(host, points, { formatValue, emptyHtml = "" } = 
   const n = points.length;
   const xy = points.map((p, i) => {
     const x = pad.l + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
-    const y = pad.t + innerH - ((p.value - lo) / spanY) * innerH;
+    const ratio = (p.value - lo) / spanY;
+    const y = lowerIsBetter ? pad.t + ratio * innerH : pad.t + innerH - ratio * innerH;
     return { ...p, x, y };
   });
   const line = xy.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
@@ -909,6 +910,7 @@ function renderImproveSections() {
       const chartPoints = records.map((p) => ({ ...p, value: p.durationSec }));
       renderGenericLineChart(chartHost, chartPoints, {
         formatValue: (p) => formatDurationMs(p.durationMs ?? p.value * 1000),
+        lowerIsBetter: true,
         emptyHtml: `<div class="pr-chart-empty">עדיין אין שיאי זמן לתרגיל זה.<br>מדידה עם דיוק ${TECHNIQUE_RECORD_MIN_ACCURACY}%+ תפתח את הגרף.</div>`,
       });
     }
@@ -970,7 +972,11 @@ function selectedTechniqueExercise() {
   return list.find((e) => e.id === state.techniqueExerciseId) || list[0] || null;
 }
 
-function formatAccuracyLabel(score) {
+function formatAccuracyLabel(scoreOrSession) {
+  const score =
+    scoreOrSession != null && typeof scoreOrSession === "object"
+      ? techniqueExecutionAccuracy(scoreOrSession)
+      : scoreOrSession;
   if (score == null || Number.isNaN(Number(score))) return "דיוק: ממתין";
   return `דיוק: ${Number(score)}%`;
 }
@@ -1035,13 +1041,9 @@ function renderTechniqueHistory() {
   host.innerHTML = list
     .slice(0, 20)
     .map((s) => {
-      const accuracy = formatAccuracyLabel(s.score);
+      const accuracy = formatAccuracyLabel(s);
       const scoreClass =
-        s.score == null
-          ? "pending"
-          : s.score >= TECHNIQUE_CHART_MIN_SCORE
-            ? "accuracy-high"
-            : "accuracy-low";
+        techniqueExecutionAccuracy(s) >= TECHNIQUE_CHART_MIN_SCORE ? "accuracy-high" : "accuracy-low";
       return `<li class="tech-hist-row">
         <span>${new Date(s.at).toLocaleString("he-IL")}<br>
         <small class="muted">${escAttr(s.participantName || "—")} · ${escAttr(s.exerciseName || s.exerciseId || "")}</small></span>
