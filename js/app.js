@@ -774,9 +774,10 @@ function improveChartOptions() {
     },
   ];
   for (const ex of state.techniqueCatalog?.exercises || []) {
+    const short = ex.id === "slalom_one_foot" ? "רגל אחת" : ex.id === "slalom_two_feet" ? "שתי רגליים" : ex.name;
     opts.push({
       id: `tech_score_${ex.id}`,
-      label: `${ex.name} · ציון`,
+      label: `ציון · ${short}`,
       title: `ציון דיוק — ${ex.name}`,
       sub: "ציוני מדידות לאורך זמן (0–100). עד חיבור מודל זה ציון זמני.",
       tip: "",
@@ -785,7 +786,7 @@ function improveChartOptions() {
     });
     opts.push({
       id: `tech_time_${ex.id}`,
-      label: `${ex.name} · זמן`,
+      label: `זמן · ${short}`,
       title: `זמן ביצוע — ${ex.name}`,
       sub: "משך המדידה בשניות לאורך זמן.",
       tip: "",

@@ -644,11 +644,15 @@ h1, .page-title {
   z-index: 10;
 }
 .tabbar.tabbar-wide {
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  padding-inline: 2px;
 }
+.tabbar.tabbar-wide button {
+  font-size: 8.5px;
+  letter-spacing: -0.02em;
+}
+.tabbar.tabbar-wide svg { width: 18px; height: 18px; }
 .tabbar button {
   border: 0;
   background: none;
