@@ -7,6 +7,9 @@ import {
   techniqueWhatsAppSummary,
   techniqueChartPoints,
   techniqueHistoryRows,
+  ascendingTechniqueTimeRecords,
+  techniqueExecutionAccuracy,
+  TECHNIQUE_RECORD_MIN_ACCURACY,
   conePositions,
 } from "../js/technique.js";
 
@@ -127,5 +130,28 @@ test("techniqueHistoryRows returns newest first for an exercise", () => {
   assert.deepEqual(
     rows.map((r) => r.id),
     ["c", "a"]
+  );
+});
+
+test("techniqueExecutionAccuracy uses session score when present", () => {
+  assert.equal(techniqueExecutionAccuracy({ score: 90 }), 90);
+  assert.equal(techniqueExecutionAccuracy({ score: null }), 0);
+  assert.equal(techniqueExecutionAccuracy({}), TECHNIQUE_RECORD_MIN_ACCURACY);
+});
+
+test("ascendingTechniqueTimeRecords keeps only improving fastest times", () => {
+  const sessions = [
+    { id: "a", at: "2026-01-01T00:00:00.000Z", exerciseId: "slalom_one_foot", durationMs: 9000 },
+    { id: "b", at: "2026-01-02T00:00:00.000Z", exerciseId: "slalom_one_foot", durationMs: 8500 },
+    { id: "c", at: "2026-01-03T00:00:00.000Z", exerciseId: "slalom_one_foot", durationMs: 8600 },
+    { id: "d", at: "2026-01-04T00:00:00.000Z", exerciseId: "slalom_two_feet", durationMs: 7000 },
+  ];
+  const records = ascendingTechniqueTimeRecords(sessions, "slalom_one_foot");
+  assert.deepEqual(
+    records.map((p) => [p.id, p.durationMs]),
+    [
+      ["a", 9000],
+      ["b", 8500],
+    ]
   );
 });
