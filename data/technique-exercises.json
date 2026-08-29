@@ -1,0 +1,47 @@
+{
+  "title": "שיפור טכניקה",
+  "subtitle": "בחרו תרגיל, סדרו קונוסים לפי ההנחיה, והקליטו מדידה. הציון יושווה למודל בהמשך.",
+  "phonePlacementHint": "שימו את הטלפון בכיס הצדדי לאורך כל התרגיל.",
+  "exercises": [
+    {
+      "id": "slalom_one_foot",
+      "name": "סלאלום רגל אחת",
+      "description": "עברו בין הקונוסים על רגל אחת, לסירוגין לפי ההדגמה.",
+      "demoVideo": {
+        "youtubeId": "",
+        "placeholderTitle": "סרטון הדגמה — סלאלום רגל אחת",
+        "placeholderNote": "יוחלף בסרטון אמיתי בהמשך"
+      },
+      "coneLayout": {
+        "count": 10,
+        "spacingMeters": 1,
+        "pattern": "straight_line",
+        "instructionHe": "סדרו את הקונוסים בקו ישר. המרחק בין קונוס לקונוס מוגדר בהגדרות המפתח."
+      },
+      "scoring": {
+        "modelId": null,
+        "status": "pending_model"
+      }
+    },
+    {
+      "id": "slalom_two_feet",
+      "name": "סלאלום שתי רגליים",
+      "description": "עברו בין הקונוסים בריצה / דילוג על שתי רגליים לפי ההדגמה.",
+      "demoVideo": {
+        "youtubeId": "",
+        "placeholderTitle": "סרטון הדגמה — סלאלום שתי רגליים",
+        "placeholderNote": "יוחלף בסרטון אמיתי בהמשך"
+      },
+      "coneLayout": {
+        "count": 10,
+        "spacingMeters": 1,
+        "pattern": "straight_line",
+        "instructionHe": "סדרו את הקונוסים בקו ישר. המרחק בין קונוס לקונוס מוגדר בהגדרות המפתח."
+      },
+      "scoring": {
+        "modelId": null,
+        "status": "pending_model"
+      }
+    }
+  ]
+}

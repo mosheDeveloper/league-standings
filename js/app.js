@@ -14,6 +14,14 @@ import { buildSharePayload, shareToPlatform, drawStoryCard } from "./share.js";
 import { buildBoards, bestVerifiedKmh, canSeeFriends } from "./records.js";
 import { ascendingPersonalRecords, formatPrDate } from "./pr-progress.js";
 import {
+  scoreTechniqueSession,
+  formatDurationMs,
+  deviceInfo,
+  shareTechniqueToWhatsApp,
+  techniqueChartPoints,
+  conePositions,
+} from "./technique.js";
+import {
   getSession,
   saveSession,
   loadAuthConfig,
@@ -51,6 +59,11 @@ const state = {
   prPointId: null,
   prHold: null,
   trainingCatalog: null,
+  techniqueCatalog: null,
+  techniqueExerciseId: null,
+  improveChartId: "speed_prs",
+  lastTechniqueResult: null,
+  techniqueTicker: null,
 };
 
 function toast(msg) {
@@ -68,12 +81,15 @@ function toast(msg) {
 }
 
 function showView(name) {
-  if (name !== "training") closeVideoPlayer();
+  if (name !== "experts") closeVideoPlayer();
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   document.querySelectorAll("nav.tabbar button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name)
   );
   document.body.classList.toggle("run-mode", name === "run");
+  if (name !== "technique") {
+    document.body.classList.remove("technique-run");
+  }
 }
 
 function tableTitle(t) {
@@ -746,15 +762,141 @@ function bindPrPointGestures(root) {
   });
 }
 
-function renderPrChart() {
+function improveChartOptions() {
+  const opts = [
+    {
+      id: "speed_prs",
+      label: "שיאי מהירות",
+      title: "גרף שיאים עולים",
+      sub: "כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.",
+      tip: "לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).",
+      kind: "speed_prs",
+    },
+  ];
+  for (const ex of state.techniqueCatalog?.exercises || []) {
+    const short = ex.id === "slalom_one_foot" ? "רגל אחת" : ex.id === "slalom_two_feet" ? "שתי רגליים" : ex.name;
+    opts.push({
+      id: `tech_score_${ex.id}`,
+      label: `ציון · ${short}`,
+      title: `ציון דיוק — ${ex.name}`,
+      sub: "ציוני מדידות לאורך זמן (0–100). עד חיבור מודל זה ציון זמני.",
+      tip: "",
+      kind: "technique_score",
+      exerciseId: ex.id,
+    });
+    opts.push({
+      id: `tech_time_${ex.id}`,
+      label: `זמן · ${short}`,
+      title: `זמן ביצוע — ${ex.name}`,
+      sub: "משך המדידה בשניות לאורך זמן.",
+      tip: "",
+      kind: "technique_time",
+      exerciseId: ex.id,
+    });
+  }
+  return opts;
+}
+
+function renderImproveChartChips() {
+  const host = $("improve-chart-chips");
+  if (!host) return;
+  const opts = improveChartOptions();
+  if (!opts.some((o) => o.id === state.improveChartId)) {
+    state.improveChartId = opts[0]?.id || "speed_prs";
+    Store.setImproveChartId(state.improveChartId);
+  }
+  host.innerHTML = opts
+    .map(
+      (o) =>
+        `<button type="button" class="league-chip${o.id === state.improveChartId ? " on" : ""}" role="option" aria-selected="${
+          o.id === state.improveChartId
+        }" data-chart-id="${escAttr(o.id)}">${escAttr(o.label)}</button>`
+    )
+    .join("");
+}
+
+function renderGenericLineChart(host, points, { valueSuffix = "", emptyHtml = "" } = {}) {
+  if (!points.length) {
+    host.innerHTML = emptyHtml || `<div class="pr-chart-empty">אין עדיין נקודות לגרף זה.</div>`;
+    return;
+  }
+  const w = 320;
+  const h = 168;
+  const pad = { t: 28, r: 16, b: 36, l: 16 };
+  const innerW = w - pad.l - pad.r;
+  const innerH = h - pad.t - pad.b;
+  const values = points.map((p) => p.value);
+  const minY = Math.min(...values);
+  const maxY = Math.max(...values);
+  const padY = Math.max(0.5, (maxY - minY) * 0.12);
+  const lo = minY - padY;
+  const hi = maxY + padY;
+  const spanY = Math.max(0.5, hi - lo);
+  const n = points.length;
+  const xy = points.map((p, i) => {
+    const x = pad.l + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+    const y = pad.t + innerH - ((p.value - lo) / spanY) * innerH;
+    return { ...p, x, y };
+  });
+  const line = xy.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const axisY = pad.t + innerH;
+  host.innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img">
+    <line class="pr-axis" x1="${pad.l}" y1="${axisY}" x2="${w - pad.r}" y2="${axisY}" />
+    <path class="pr-line" d="${line}" />
+    ${xy
+      .map(
+        (p) => `<g class="pr-point">
+          <circle class="pr-dot" cx="${p.x}" cy="${p.y}" r="6" />
+          <text class="pr-label-speed" x="${p.x}" y="${p.y - 12}" text-anchor="middle">${
+            Number.isInteger(p.value) ? p.value : p.value.toFixed(1)
+          }${valueSuffix}</text>
+          <text class="pr-label-date" x="${p.x}" y="${axisY + 16}" text-anchor="middle">${formatPrDate(p.at)}</text>
+        </g>`
+      )
+      .join("")}
+  </svg>`;
+}
+
+function renderImproveChart() {
   const host = $("pr-chart");
   if (!host) return;
-  const points = ascendingPersonalRecords(Store.getRuns());
-  if (!points.length) {
-    host.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
+  const opt = improveChartOptions().find((o) => o.id === state.improveChartId) || improveChartOptions()[0];
+  if ($("improve-chart-title")) $("improve-chart-title").textContent = opt?.title || "";
+  if ($("improve-chart-sub")) $("improve-chart-sub").textContent = opt?.sub || "";
+  const tip = $("improve-chart-tip");
+  if (tip) {
+    tip.textContent = opt?.tip || "";
+    tip.hidden = !opt?.tip;
+  }
+
+  if (!opt || opt.kind === "speed_prs") {
+    const points = ascendingPersonalRecords(Store.getRuns());
+    if (!points.length) {
+      host.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
+      return;
+    }
+    renderSpeedPrChart(host, points);
     return;
   }
 
+  if (opt.kind === "technique_score") {
+    const points = techniqueChartPoints(Store.getTechniqueSessions(), opt.exerciseId, "score");
+    renderGenericLineChart(host, points, {
+      emptyHtml: `<div class="pr-chart-empty">עדיין אין ציונים לתרגיל זה.<br>השלימו מדידה במסך טכניקה.</div>`,
+    });
+    return;
+  }
+
+  if (opt.kind === "technique_time") {
+    const points = techniqueChartPoints(Store.getTechniqueSessions(), opt.exerciseId, "durationSec");
+    renderGenericLineChart(host, points, {
+      valueSuffix: "",
+      emptyHtml: `<div class="pr-chart-empty">עדיין אין זמנים לתרגיל זה.<br>השלימו מדידה במסך טכניקה.</div>`,
+    });
+  }
+}
+
+function renderSpeedPrChart(host, points) {
   const w = 320;
   const h = 168;
   const pad = { t: 28, r: 16, b: 36, l: 16 };
@@ -793,8 +935,16 @@ function renderPrChart() {
   bindPrPointGestures(host);
 }
 
+function renderImprove() {
+  renderImproveChartChips();
+  renderImproveChart();
+}
+
+function renderPrChart() {
+  renderImproveChart();
+}
+
 function renderHistory() {
-  renderPrChart();
   const h = Store.getRuns();
   if (!h.length) {
     $("history-list").innerHTML = `<p class="muted">אין ריצות עדיין.</p>`;
@@ -819,6 +969,263 @@ function renderHistory() {
       </li>`;
     })
     .join("");
+}
+
+function selectedTechniqueExercise() {
+  const list = state.techniqueCatalog?.exercises || [];
+  return list.find((e) => e.id === state.techniqueExerciseId) || list[0] || null;
+}
+
+function renderTechniqueExerciseChips() {
+  const host = $("technique-exercise-chips");
+  if (!host) return;
+  const list = state.techniqueCatalog?.exercises || [];
+  if (!list.length) {
+    host.innerHTML = `<p class="hint">אין תרגילים מוגדרים.</p>`;
+    return;
+  }
+  if (!list.some((e) => e.id === state.techniqueExerciseId)) {
+    state.techniqueExerciseId = list[0].id;
+  }
+  host.innerHTML = list
+    .map(
+      (e) =>
+        `<button type="button" class="league-chip${e.id === state.techniqueExerciseId ? " on" : ""}" role="option" aria-selected="${
+          e.id === state.techniqueExerciseId
+        }" data-exercise-id="${escAttr(e.id)}">${escAttr(e.name)}</button>`
+    )
+    .join("");
+}
+
+function renderConeLayout(exercise) {
+  const layout = exercise?.coneLayout || {};
+  const mapped = conePositions(layout);
+  const instruction = $("cone-instruction");
+  if (instruction) {
+    instruction.textContent =
+      layout.instructionHe ||
+      `סדרו ${mapped.count} קונוסים בקו ישר, ${mapped.spacingMeters} מ׳ בין קונוס לקונוס.`;
+  }
+  const meta = $("cone-meta");
+  if (meta) {
+    meta.innerHTML = `
+      <span class="cone-pill">${mapped.count} קונוסים</span>
+      <span class="cone-pill">${mapped.spacingMeters} מ׳ בין קונוס לקונוס</span>
+      <span class="cone-pill">אורך מסלול ≈ ${mapped.totalLengthMeters} מ׳</span>`;
+  }
+  const track = $("cone-track");
+  if (track) {
+    track.innerHTML =
+      mapped.positions
+        .map(
+          (p) => `<div class="cone-item" title="${p.metersFromStart} מ׳ מההתחלה">
+            <div class="cone-shape" aria-hidden="true"></div>
+            <span class="cone-idx">${p.index}</span>
+          </div>`
+        )
+        .join("") +
+      `<p class="cone-spacing-note" style="flex-basis:100%">המרווח והכמות מוגדרים לקובץ התרגיל (למפתח) — המשתמש רואה הנחיה בלבד.</p>`;
+  }
+}
+
+function renderTechniqueDemo(exercise) {
+  const demo = exercise?.demoVideo || {};
+  const title = $("technique-demo-title");
+  const note = $("technique-demo-note");
+  const btn = $("technique-demo-btn");
+  if (title) title.textContent = demo.placeholderTitle || demo.title || "סרטון הדגמה";
+  if (note) note.textContent = demo.youtubeId ? "לחצו לצפייה" : demo.placeholderNote || "יוחלף בסרטון אמיתי בהמשך";
+  if (btn) {
+    btn.dataset.youtubeId = demo.youtubeId || "";
+    btn.dataset.title = demo.placeholderTitle || exercise?.name || "הדגמה";
+  }
+}
+
+function renderTechniqueHistory() {
+  const host = $("technique-history-list");
+  if (!host) return;
+  const list = Store.getTechniqueSessions();
+  if (!list.length) {
+    host.innerHTML = `<p class="muted">אין מדידות עדיין.</p>`;
+    return;
+  }
+  host.innerHTML = list
+    .slice(0, 20)
+    .map((s) => {
+      const score =
+        s.score == null || Number.isNaN(Number(s.score))
+          ? "ממתין"
+          : `${s.score}`;
+      const scoreClass = s.score == null ? "pending" : "";
+      return `<li class="tech-hist-row">
+        <span>${new Date(s.at).toLocaleString("he-IL")}<br>
+        <small class="muted">${escAttr(s.participantName || "—")} · ${escAttr(s.exerciseName || s.exerciseId || "")}</small></span>
+        <span class="tech-hist-actions">
+          <b class="${scoreClass}">${score} · ${formatDurationMs(s.durationMs)}</b>
+          <button type="button" class="text-btn tech-wa" data-tech-id="${escAttr(s.id)}">WhatsApp</button>
+        </span>
+      </li>`;
+    })
+    .join("");
+}
+
+function renderTechnique() {
+  const cat = state.techniqueCatalog;
+  if ($("technique-sub") && cat?.subtitle) $("technique-sub").textContent = cat.subtitle;
+  if ($("technique-placement-hint")) {
+    $("technique-placement-hint").textContent =
+      cat?.phonePlacementHint || "שימו את הטלפון בכיס לאורך התרגיל.";
+  }
+  const nameInput = $("participant-name");
+  if (nameInput && !nameInput.value) nameInput.value = Store.getParticipantName();
+  renderTechniqueExerciseChips();
+  const ex = selectedTechniqueExercise();
+  renderTechniqueDemo(ex);
+  renderConeLayout(ex);
+  renderTechniqueHistory();
+}
+
+function clearTechniqueTicker() {
+  if (state.techniqueTicker) {
+    clearInterval(state.techniqueTicker);
+    state.techniqueTicker = null;
+  }
+}
+
+async function startTechniqueRun() {
+  const name = ($("participant-name")?.value || "").trim();
+  if (!name) {
+    toast("הזינו שם משתתף לפני המדידה");
+    $("participant-name")?.focus();
+    return;
+  }
+  Store.setParticipantName(name);
+  const exercise = selectedTechniqueExercise();
+  if (!exercise) {
+    toast("אין תרגיל נבחר");
+    return;
+  }
+
+  const probe = await probeGps({ timeout: 9000, maxAccuracyM: 60 });
+  if (!probe.ok) {
+    toast(probe.message || "אין GPS — צאו החוצה ונסו שוב");
+    return;
+  }
+
+  if (state.tracker) {
+    try {
+      state.tracker.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+  state.tracker = new Tracker((live) => {
+    if ($("technique-live-time")) $("technique-live-time").textContent = formatDurationMs(live.durationMs);
+    if ($("technique-live-samples")) {
+      $("technique-live-samples").textContent = String((live.samples || 0) + (live.motion || 0));
+    }
+  });
+  try {
+    await state.tracker.startLive();
+  } catch (err) {
+    toast(err.message || "לא ניתן להתחיל מדידה");
+    return;
+  }
+
+  state.mode = "technique";
+  state.lastTechniqueResult = null;
+  $("technique-result").hidden = true;
+  $("technique-live").hidden = false;
+  $("btn-technique-start").hidden = true;
+  $("btn-technique-stop").hidden = false;
+  $("btn-technique-stop").disabled = false;
+  document.body.classList.add("technique-run");
+  clearTechniqueTicker();
+  state.techniqueTicker = setInterval(() => {
+    if (!state.tracker?.active) return;
+    const ms = Date.now() - state.tracker.startedAt;
+    if ($("technique-live-time")) $("technique-live-time").textContent = formatDurationMs(ms);
+  }, 100);
+  toast("מדידה התחילה — בצעו את התרגיל");
+}
+
+async function stopTechniqueRun() {
+  clearTechniqueTicker();
+  document.body.classList.remove("technique-run");
+  $("btn-technique-stop").disabled = true;
+  $("btn-technique-stop").hidden = true;
+  $("btn-technique-start").hidden = false;
+  $("technique-live").hidden = true;
+
+  if (!state.tracker) {
+    toast("אין מדידה פעילה");
+    return;
+  }
+  const raw = state.tracker.stop();
+  const exercise = selectedTechniqueExercise();
+  const scoring = scoreTechniqueSession({
+    gps: raw.gps,
+    motion: raw.motion,
+    durationMs: raw.durationMs,
+    exercise,
+  });
+  const participantName = Store.getParticipantName();
+  const entry = Store.addTechniqueSession({
+    at: new Date().toISOString(),
+    participantName,
+    exerciseId: exercise?.id,
+    exerciseName: exercise?.name,
+    phonePlacement: "pocket",
+    label: "unlabeled",
+    durationMs: raw.durationMs,
+    startedAt: raw.startedAt,
+    score: scoring.score,
+    scoreStatus: scoring.scoreStatus,
+    scoreNoteHe: scoring.noteHe,
+    gps: raw.gps,
+    motion: raw.motion,
+    device: deviceInfo(),
+    exercise,
+  });
+  state.lastTechniqueResult = entry;
+  state.tracker = null;
+  state.mode = "run";
+
+  $("technique-result").hidden = false;
+  $("technique-score").textContent =
+    scoring.score == null ? "ממתין למודל" : `${scoring.score}/100`;
+  $("technique-duration").textContent = formatDurationMs(raw.durationMs);
+  $("technique-score-note").textContent = scoring.noteHe || "";
+  renderTechniqueHistory();
+  renderImprove();
+  toast("המדידה נשמרה — אפשר לשתף ל־WhatsApp");
+}
+
+async function shareLastTechniqueWhatsApp() {
+  const session = state.lastTechniqueResult || Store.getTechniqueSessions()[0];
+  if (!session) {
+    toast("אין מדידה לשיתוף");
+    return;
+  }
+  try {
+    const how = await shareTechniqueToWhatsApp(session);
+    if (how === "aborted") return;
+    if (how === "files") toast("נפתח שיתוף — בחרו WhatsApp");
+    else toast("הורדנו JSON ונפתח WhatsApp עם סיכום");
+  } catch (err) {
+    if (err?.name === "AbortError") return;
+    toast("לא ניתן לשתף — נסו שוב");
+  }
+}
+
+async function loadTechniqueCatalog() {
+  try {
+    state.techniqueCatalog = await (await fetch("./data/technique-exercises.json", { cache: "no-store" })).json();
+  } catch {
+    state.techniqueCatalog = { title: "שיפור טכניקה", exercises: [] };
+  }
+  state.techniqueExerciseId = state.techniqueCatalog.exercises?.[0]?.id || null;
+  renderTechnique();
 }
 
 function youtubeEmbedSrc(videoId, { autoplay = false } = {}) {
@@ -941,7 +1348,7 @@ async function loadTrainingCatalog() {
   try {
     state.trainingCatalog = await (await fetch("./data/training-videos.json", { cache: "no-store" })).json();
   } catch {
-    state.trainingCatalog = { title: "שיפור ביצועים", subtitle: "", columns: 2, videos: [] };
+    state.trainingCatalog = { title: "למד מהמומחים", subtitle: "", columns: 2, videos: [] };
   }
   renderTraining();
 }
@@ -1019,7 +1426,9 @@ function wireUi() {
     b.addEventListener("click", () => {
       const v = b.dataset.view;
       if (v === "history") renderHistory();
-      if (v === "training") renderTraining();
+      if (v === "improve") renderImprove();
+      if (v === "experts") renderTraining();
+      if (v === "technique") renderTechnique();
       if (v === "home") {
         renderProfile();
         greet();
@@ -1031,6 +1440,61 @@ function wireUi() {
       showView(v);
     })
   );
+  $("improve-chart-chips")?.addEventListener("click", (e) => {
+    const id = e.target.closest("[data-chart-id]")?.dataset.chartId;
+    if (!id) return;
+    state.improveChartId = id;
+    Store.setImproveChartId(id);
+    renderImprove();
+  });
+  $("technique-exercise-chips")?.addEventListener("click", (e) => {
+    const id = e.target.closest("[data-exercise-id]")?.dataset.exerciseId;
+    if (!id) return;
+    state.techniqueExerciseId = id;
+    renderTechnique();
+  });
+  $("participant-name")?.addEventListener("change", (e) => {
+    Store.setParticipantName(e.target.value || "");
+  });
+  $("btn-technique-start")?.addEventListener("click", () => startTechniqueRun());
+  $("btn-technique-stop")?.addEventListener("click", () => stopTechniqueRun());
+  $("btn-technique-whatsapp")?.addEventListener("click", () => shareLastTechniqueWhatsApp());
+  $("technique-history-list")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-tech-id]");
+    if (!btn) return;
+    const id = btn.dataset.techId;
+    const session = Store.getTechniqueSessions().find((s) => s.id === id);
+    if (!session) {
+      toast("מדידה לא נמצאה");
+      return;
+    }
+    try {
+      const how = await shareTechniqueToWhatsApp(session);
+      if (how === "aborted") return;
+      if (how === "files") toast("נפתח שיתוף — בחרו WhatsApp");
+      else toast("הורדנו JSON ונפתח WhatsApp עם סיכום");
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      toast("לא ניתן לשתף — נסו שוב");
+    }
+  });
+  $("btn-clear-technique")?.addEventListener("click", () => {
+    localStorage.removeItem("sprint.max.techniqueSessions");
+    state.lastTechniqueResult = null;
+    $("technique-result").hidden = true;
+    renderTechniqueHistory();
+    renderImprove();
+    toast("מדידות הטכניקה נוקו");
+  });
+  $("technique-demo-btn")?.addEventListener("click", () => {
+    const btn = $("technique-demo-btn");
+    const id = btn?.dataset.youtubeId;
+    if (!id) {
+      toast("סרטון ההדגמה עדיין לא הוגדר — זה placeholder");
+      return;
+    }
+    openVideoPlayer({ youtubeId: id, title: btn.dataset.title || "הדגמה" });
+  });
   $("training-grid")?.addEventListener("click", (e) => {
     const card = e.target.closest(".training-card[data-youtube-id]");
     if (!card) return;
@@ -1068,6 +1532,7 @@ function wireUi() {
     Store.excludeFromPr(state.prPointId);
     closePrPointSheet();
     renderHistory();
+    renderImprove();
     renderProfile();
     renderRecords();
     toast("תיעוד השיא הוסר מהגרף");
@@ -1141,7 +1606,10 @@ async function init() {
   renderLeagues();
   renderProfile();
   renderHistory();
+  state.improveChartId = Store.getImproveChartId();
   await loadTrainingCatalog();
+  await loadTechniqueCatalog();
+  renderImprove();
   state.authConfig = await loadAuthConfig();
   try {
     state.recordsCatalog = await (await fetch("./data/records.json", { cache: "no-store" })).json();

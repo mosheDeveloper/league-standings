@@ -4,6 +4,9 @@ const KEYS = {
   overrides: "sprint.max.overrides",
   name: "sprint.max.displayName",
   compareFilters: "sprint.max.compareFilters",
+  techniqueSessions: "sprint.max.techniqueSessions",
+  participantName: "sprint.max.participantName",
+  improveChart: "sprint.max.improveChart",
 };
 
 const EMPTY_FILTERS = { sport: null, leagueId: null, team: null };
@@ -110,5 +113,32 @@ export const Store = {
       leagueId: filters?.leagueId || null,
       team: filters?.team || null,
     });
+  },
+  getParticipantName() {
+    return localStorage.getItem(KEYS.participantName) || "";
+  },
+  setParticipantName(name) {
+    localStorage.setItem(KEYS.participantName, String(name || "").trim().slice(0, 48));
+  },
+  getImproveChartId() {
+    return localStorage.getItem(KEYS.improveChart) || "speed_prs";
+  },
+  setImproveChartId(id) {
+    localStorage.setItem(KEYS.improveChart, String(id || "speed_prs"));
+  },
+  getTechniqueSessions() {
+    return read(KEYS.techniqueSessions, []);
+  },
+  addTechniqueSession(session) {
+    const list = Store.getTechniqueSessions();
+    const entry = {
+      ...session,
+      id:
+        session.id ||
+        `tech_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    };
+    list.unshift(entry);
+    write(KEYS.techniqueSessions, list.slice(0, 120));
+    return entry;
   },
 };
