@@ -66,6 +66,7 @@ const state = {
   techniqueExerciseId: null,
   lastTechniqueResult: null,
   techniqueTicker: null,
+  improveTabId: "speed_prs",
 };
 
 function toast(msg) {
@@ -855,72 +856,108 @@ function renderTechniqueImproveHistory(exerciseId, recordIds) {
     .join("")}</ul>`;
 }
 
+function improveTabOptions() {
+  const opts = [{ id: "speed_prs", label: "ריצה", kind: "speed" }];
+  for (const ex of state.techniqueCatalog?.exercises || []) {
+    opts.push({ id: `tech_${ex.id}`, label: ex.name, kind: "technique", exerciseId: ex.id });
+  }
+  return opts;
+}
+
+function normalizeImproveTabId(id) {
+  const raw = String(id || "");
+  if (raw.startsWith("tech_score_")) return `tech_${raw.slice("tech_score_".length)}`;
+  if (raw.startsWith("tech_time_")) return `tech_${raw.slice("tech_time_".length)}`;
+  return raw || "speed_prs";
+}
+
+function renderImproveTabs() {
+  const host = $("improve-tabs");
+  if (!host) return;
+  const opts = improveTabOptions();
+  state.improveTabId = normalizeImproveTabId(state.improveTabId || Store.getImproveChartId());
+  if (!opts.some((o) => o.id === state.improveTabId)) {
+    state.improveTabId = opts[0]?.id || "speed_prs";
+  }
+  Store.setImproveChartId(state.improveTabId);
+  host.innerHTML = opts
+    .map(
+      (o) =>
+        `<button type="button" class="league-chip${o.id === state.improveTabId ? " on" : ""}" role="tab" aria-selected="${
+          o.id === state.improveTabId
+        }" data-improve-tab="${escAttr(o.id)}">${escAttr(o.label)}</button>`
+    )
+    .join("");
+}
+
 function renderImproveSections() {
   const host = $("improve-sections");
   if (!host) return;
 
-  const blocks = [];
+  const opt = improveTabOptions().find((o) => o.id === state.improveTabId) || improveTabOptions()[0];
+  if (!opt) {
+    host.innerHTML = `<p class="muted">אין תרגילים להצגה.</p>`;
+    return;
+  }
 
-  blocks.push(`<article class="improve-exercise-block" data-improve-kind="speed">
-    <div class="pr-chart-head">
-      <h2 class="section-title">שיאי מהירות</h2>
-      <p class="hint tight">כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.</p>
-    </div>
-    <div class="pr-chart-wrap improve-chart" dir="ltr" aria-label="גרף שיאי מהירות"></div>
-    <p class="hint pr-chart-tip">לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).</p>
-    <div class="improve-history-block">
-      <p class="label tight">היסטוריית ריצות</p>
-      ${renderSpeedImproveHistory()}
-    </div>
-  </article>`);
-
-  for (const ex of state.techniqueCatalog?.exercises || []) {
-    blocks.push(`<article class="improve-exercise-block" data-improve-kind="technique" data-exercise-id="${escAttr(ex.id)}">
+  if (opt.kind === "speed") {
+    host.innerHTML = `<article class="improve-exercise-block" data-improve-kind="speed">
       <div class="pr-chart-head">
-        <h2 class="section-title">${escAttr(ex.name)}</h2>
-        <p class="hint tight">שיאי זמן — נספרים רק מדידות עם דיוק ביצוע של לפחות ${TECHNIQUE_RECORD_MIN_ACCURACY}%.</p>
+        <h2 class="section-title">שיאי מהירות</h2>
+        <p class="hint tight">כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.</p>
       </div>
-      <div class="pr-chart-wrap improve-chart" dir="ltr" aria-label="גרף שיאי זמן — ${escAttr(ex.name)}"></div>
+      <div class="pr-chart-wrap improve-chart" dir="ltr" aria-label="גרף שיאי מהירות"></div>
+      <p class="hint pr-chart-tip">לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).</p>
       <div class="improve-history-block">
-        <p class="label tight">היסטוריית מדידות</p>
-        <div class="improve-tech-history"></div>
+        <p class="label tight">היסטוריית ריצות</p>
+        ${renderSpeedImproveHistory()}
       </div>
-    </article>`);
+    </article>`;
+
+    const speedChart = host.querySelector(".improve-chart");
+    if (speedChart) {
+      const points = ascendingPersonalRecords(Store.getRuns());
+      if (!points.length) {
+        speedChart.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
+      } else {
+        renderSpeedPrChart(speedChart, points);
+      }
+    }
+    return;
   }
 
-  host.innerHTML = blocks.join("");
+  const ex = state.techniqueCatalog?.exercises?.find((e) => e.id === opt.exerciseId);
+  host.innerHTML = `<article class="improve-exercise-block" data-improve-kind="technique" data-exercise-id="${escAttr(opt.exerciseId)}">
+    <div class="pr-chart-head">
+      <h2 class="section-title">${escAttr(ex?.name || opt.label)}</h2>
+      <p class="hint tight">שיאי זמן — נספרים רק מדידות עם דיוק ביצוע של לפחות ${TECHNIQUE_RECORD_MIN_ACCURACY}%.</p>
+    </div>
+    <div class="pr-chart-wrap improve-chart" dir="ltr" aria-label="גרף שיאי זמן — ${escAttr(ex?.name || opt.label)}"></div>
+    <div class="improve-history-block">
+      <p class="label tight">היסטוריית מדידות</p>
+      <div class="improve-tech-history"></div>
+    </div>
+  </article>`;
 
-  const speedChart = host.querySelector('[data-improve-kind="speed"] .improve-chart');
-  if (speedChart) {
-    const points = ascendingPersonalRecords(Store.getRuns());
-    if (!points.length) {
-      speedChart.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
-    } else {
-      renderSpeedPrChart(speedChart, points);
-    }
+  const chartHost = host.querySelector(".improve-chart");
+  const historyHost = host.querySelector(".improve-tech-history");
+  const records = ascendingTechniqueTimeRecords(Store.getTechniqueSessions(), opt.exerciseId);
+  const recordIds = new Set(records.map((p) => p.id));
+  if (chartHost) {
+    const chartPoints = records.map((p) => ({ ...p, value: p.durationSec }));
+    renderGenericLineChart(chartHost, chartPoints, {
+      formatValue: (p) => formatDurationMs(p.durationMs ?? p.value * 1000),
+      lowerIsBetter: true,
+      emptyHtml: `<div class="pr-chart-empty">עדיין אין שיאי זמן לתרגיל זה.<br>מדידה עם דיוק ${TECHNIQUE_RECORD_MIN_ACCURACY}%+ תפתח את הגרף.</div>`,
+    });
   }
-
-  host.querySelectorAll('[data-improve-kind="technique"]').forEach((block) => {
-    const exerciseId = block.dataset.exerciseId;
-    const chartHost = block.querySelector(".improve-chart");
-    const historyHost = block.querySelector(".improve-tech-history");
-    const records = ascendingTechniqueTimeRecords(Store.getTechniqueSessions(), exerciseId);
-    const recordIds = new Set(records.map((p) => p.id));
-    if (chartHost) {
-      const chartPoints = records.map((p) => ({ ...p, value: p.durationSec }));
-      renderGenericLineChart(chartHost, chartPoints, {
-        formatValue: (p) => formatDurationMs(p.durationMs ?? p.value * 1000),
-        lowerIsBetter: true,
-        emptyHtml: `<div class="pr-chart-empty">עדיין אין שיאי זמן לתרגיל זה.<br>מדידה עם דיוק ${TECHNIQUE_RECORD_MIN_ACCURACY}%+ תפתח את הגרף.</div>`,
-      });
-    }
-    if (historyHost) {
-      historyHost.innerHTML = renderTechniqueImproveHistory(exerciseId, recordIds);
-    }
-  });
+  if (historyHost) {
+    historyHost.innerHTML = renderTechniqueImproveHistory(opt.exerciseId, recordIds);
+  }
 }
 
 function renderImprove() {
+  renderImproveTabs();
   renderImproveSections();
 }
 
@@ -1411,6 +1448,13 @@ function wireUi() {
   $("compare-filters")?.addEventListener("click", onCompareFilterClick);
   $("table-select")?.addEventListener("change", (e) => pickTable(e.target.value));
   $("btn-gps-retry")?.addEventListener("click", () => refreshGpsLock());
+  $("improve-tabs")?.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-improve-tab]")?.dataset.improveTab;
+    if (!tab || tab === state.improveTabId) return;
+    state.improveTabId = tab;
+    Store.setImproveChartId(tab);
+    renderImprove();
+  });
   $("btn-start")?.addEventListener("click", startRun);
   $("btn-stop")?.addEventListener("click", stopRun);
   $("btn-new-run")?.addEventListener("click", () => showView("home"));
@@ -1582,6 +1626,7 @@ async function init() {
   renderProfile();
   await loadTrainingCatalog();
   await loadTechniqueCatalog();
+  state.improveTabId = normalizeImproveTabId(Store.getImproveChartId());
   renderImprove();
   state.authConfig = await loadAuthConfig();
   try {
