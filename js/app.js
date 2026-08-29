@@ -1039,7 +1039,7 @@ function renderTechniqueHistory() {
       const scoreClass =
         s.score == null
           ? "pending"
-          : s.score > TECHNIQUE_CHART_MIN_SCORE
+          : s.score >= TECHNIQUE_CHART_MIN_SCORE
             ? "accuracy-high"
             : "accuracy-low";
       return `<li class="tech-hist-row">
@@ -1179,7 +1179,13 @@ async function stopTechniqueRun() {
   $("technique-score").textContent =
     scoring.score == null ? "ממתין למודל" : `${scoring.score}/100`;
   $("technique-duration").textContent = formatDurationMs(raw.durationMs);
-  $("technique-score-note").textContent = scoring.noteHe || "";
+  const chartNote =
+    scoring.score != null && scoring.score >= TECHNIQUE_CHART_MIN_SCORE
+      ? `רמת דיוק ${TECHNIQUE_CHART_MIN_SCORE}% ומעלה — הביצוע ייכנס לגרף שיאי זמן בשיפור.`
+      : scoring.score != null
+        ? `רמת דיוק מתחת ל-${TECHNIQUE_CHART_MIN_SCORE}% לא נכנסת לגרף — רק להיסטוריה.`
+        : "";
+  $("technique-score-note").textContent = [scoring.noteHe || "", chartNote].filter(Boolean).join(" ");
   renderTechniqueHistory();
   renderImprove();
   toast("המדידה נשמרה — אפשר לשתף ל־WhatsApp");

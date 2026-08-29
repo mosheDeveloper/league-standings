@@ -29,12 +29,14 @@ export function deviceInfo() {
 export function scoreTechniqueSession({ gps = [], motion = [], durationMs = 0, exercise } = {}) {
   const status = exercise?.scoring?.status || "pending_model";
   if (status === "pending_model" || !exercise?.scoring?.modelId) {
-    const provisional = provisionalMotionScore(motion, durationMs);
+    const completed = isCompletedTechniqueSession({ motion, durationMs });
     return {
-      score: provisional,
+      score: completed ? PROVISIONAL_TECHNIQUE_ACCURACY : null,
       scoreStatus: "pending_model",
       modelId: null,
-      noteHe: "ציון זמני לפי תנועת מכשיר בלבד — יוחלף בהשוואה למודל ול־DB.",
+      noteHe: completed
+        ? `ציון זמני קבוע (${PROVISIONAL_TECHNIQUE_ACCURACY}%) — יוחלף במדידות דיוק לכל תרגיל.`
+        : "המדידה קצרה מדי — בצעו שוב את התרגיל.",
     };
   }
   return {
@@ -45,16 +47,10 @@ export function scoreTechniqueSession({ gps = [], motion = [], durationMs = 0, e
   };
 }
 
-function provisionalMotionScore(motion, durationMs) {
-  if (!motion?.length || durationMs < 1500) return null;
+function isCompletedTechniqueSession({ motion = [], durationMs = 0 } = {}) {
+  if (!motion?.length || durationMs < 1500) return false;
   const acc = motion.map((m) => m.accMag ?? 0).filter((n) => Number.isFinite(n));
-  if (acc.length < 8) return null;
-  const mean = acc.reduce((s, x) => s + x, 0) / acc.length;
-  const variance = acc.reduce((s, x) => s + (x - mean) ** 2, 0) / acc.length;
-  const std = Math.sqrt(variance);
-  // Soft map: still phone → low; lively footwork → higher. Cap 0–100.
-  const raw = ((std - 0.4) / 4.5) * 100;
-  return Math.max(0, Math.min(100, Math.round(raw)));
+  return acc.length >= 8;
 }
 
 export function buildTechniqueExport(session) {
@@ -153,12 +149,19 @@ export const TECHNIQUE_RECORD_MIN_ACCURACY = 90;
 /** Alias used by chart filters and technique history labels. */
 export const TECHNIQUE_CHART_MIN_SCORE = TECHNIQUE_RECORD_MIN_ACCURACY;
 
+/** Placeholder accuracy (%) for completed drills until per-exercise calibration exists. */
+export const PROVISIONAL_TECHNIQUE_ACCURACY = 90;
+
 /**
- * Provisional execution accuracy until model / DB comparison is wired.
- * @returns {number} 0–100
+ * Execution accuracy for chart eligibility and history labels.
+ * Uses stored session score when present; legacy sessions without score keep the provisional default.
  */
-export function techniqueExecutionAccuracy(_session) {
-  return TECHNIQUE_RECORD_MIN_ACCURACY;
+export function techniqueExecutionAccuracy(session) {
+  if (session && "score" in session) {
+    const score = Number(session.score);
+    return Number.isFinite(score) ? score : 0;
+  }
+  return PROVISIONAL_TECHNIQUE_ACCURACY;
 }
 
 export function isEligibleTechniqueTimeRecord(session, exerciseId) {
@@ -215,7 +218,7 @@ export function techniqueChartPoints(sessions, exerciseId, metric = "score", opt
     .filter((s) => s && (!exerciseId || s.exerciseId === exerciseId))
     .filter((s) => {
       if (minScore == null) return true;
-      return Number.isFinite(s.score) && s.score > minScore;
+      return Number.isFinite(s.score) && s.score >= minScore;
     })
     .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
 

@@ -28,7 +28,7 @@ test("conePositions uses developer count and spacing", () => {
   assert.equal(mapped.positions[9].metersFromStart, 9);
 });
 
-test("scoreTechniqueSession is pending_model without modelId", () => {
+test("scoreTechniqueSession returns fixed 90% for completed pending_model sessions", () => {
   const motion = [];
   for (let i = 0; i < 20; i++) {
     motion.push({ t: i * 50, accMag: 9 + (i % 3) });
@@ -39,8 +39,17 @@ test("scoreTechniqueSession is pending_model without modelId", () => {
     exercise: { scoring: { status: "pending_model", modelId: null } },
   });
   assert.equal(result.scoreStatus, "pending_model");
-  assert.equal(typeof result.score, "number");
-  assert.ok(result.score >= 0 && result.score <= 100);
+  assert.equal(result.score, 90);
+  assert.match(result.noteHe, /90%/);
+});
+
+test("scoreTechniqueSession returns null for too-short sessions", () => {
+  const result = scoreTechniqueSession({
+    motion: [{ t: 0, accMag: 10 }],
+    durationMs: 500,
+    exercise: { scoring: { status: "pending_model", modelId: null } },
+  });
+  assert.equal(result.score, null);
 });
 
 test("buildTechniqueExport packages raw samples and participant name", () => {
@@ -104,7 +113,10 @@ test("techniqueChartPoints filters by exercise, metric, and minScore", () => {
   const chartTimes = techniqueChartPoints(sessions, "slalom_one_foot", "durationSec", { minScore: 90 });
   assert.deepEqual(
     chartTimes.map((p) => [p.id, p.value]),
-    [["d", 6.5]]
+    [
+      ["d", 6.5],
+      ["e", 6.4],
+    ]
   );
 });
 
@@ -121,7 +133,9 @@ test("techniqueHistoryRows returns newest first for an exercise", () => {
   );
 });
 
-test("techniqueExecutionAccuracy is provisional 90% for all sessions", () => {
+test("techniqueExecutionAccuracy uses session score when present", () => {
+  assert.equal(techniqueExecutionAccuracy({ score: 90 }), 90);
+  assert.equal(techniqueExecutionAccuracy({ score: null }), 0);
   assert.equal(techniqueExecutionAccuracy({}), TECHNIQUE_RECORD_MIN_ACCURACY);
 });
 
