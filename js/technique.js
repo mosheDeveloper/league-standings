@@ -150,6 +150,9 @@ export async function shareTechniqueToWhatsApp(session) {
 /** Minimum execution accuracy (%) for a technique time to count as a personal record. */
 export const TECHNIQUE_RECORD_MIN_ACCURACY = 90;
 
+/** Alias used by chart filters and technique history labels. */
+export const TECHNIQUE_CHART_MIN_SCORE = TECHNIQUE_RECORD_MIN_ACCURACY;
+
 /**
  * Provisional execution accuracy until model / DB comparison is wired.
  * @returns {number} 0–100
@@ -195,16 +198,25 @@ export function ascendingTechniqueTimeRecords(sessions, exerciseId) {
 }
 
 /** Sessions for one exercise, newest first (event history). */
-export function techniqueExerciseHistory(sessions, exerciseId) {
+export function techniqueHistoryRows(sessions, exerciseId) {
   return [...(sessions || [])]
-    .filter((s) => s && s.exerciseId === exerciseId)
+    .filter((s) => s && (!exerciseId || s.exerciseId === exerciseId))
     .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
 }
 
+export function techniqueExerciseHistory(sessions, exerciseId) {
+  return techniqueHistoryRows(sessions, exerciseId);
+}
+
 /** Series of score / duration points for improvement charts. */
-export function techniqueChartPoints(sessions, exerciseId, metric = "score") {
+export function techniqueChartPoints(sessions, exerciseId, metric = "score", options = {}) {
+  const minScore = options.minScore;
   const list = [...(sessions || [])]
     .filter((s) => s && (!exerciseId || s.exerciseId === exerciseId))
+    .filter((s) => {
+      if (minScore == null) return true;
+      return Number.isFinite(s.score) && s.score > minScore;
+    })
     .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
 
   return list
@@ -216,7 +228,7 @@ export function techniqueChartPoints(sessions, exerciseId, metric = "score") {
         value = Number.isFinite(s.durationMs) ? s.durationMs / 1000 : null;
       }
       if (value == null) return null;
-      return { id: s.id, at: s.at, value, session: s };
+      return { id: s.id, at: s.at, value, score: s.score ?? null, session: s };
     })
     .filter(Boolean);
 }

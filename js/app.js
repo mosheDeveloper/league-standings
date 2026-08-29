@@ -22,7 +22,7 @@ import {
   techniqueExerciseHistory,
   techniqueExecutionAccuracy,
   TECHNIQUE_RECORD_MIN_ACCURACY,
-  conePositions,
+  TECHNIQUE_CHART_MIN_SCORE,
 } from "./technique.js";
 import {
   getSession,
@@ -83,7 +83,7 @@ function toast(msg) {
 }
 
 function showView(name) {
-  if (name !== "experts") closeVideoPlayer();
+  if (name !== "experts" && name !== "technique") closeVideoPlayer();
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
   document.querySelectorAll("nav.tabbar button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name)
@@ -652,10 +652,10 @@ function stopRun() {
   renderResult();
   showView("result");
   renderProfile();
-  renderHistory();
   renderRecords();
   renderAthleteCompare();
   refreshGpsLock();
+  renderImprove();
   if (analysis.valid) {
     syncMyScore().then(() => {
       if (state.session?.friendsFromApi) {
@@ -965,101 +965,63 @@ function renderSpeedPrChart(host, points) {
   bindPrPointGestures(host);
 }
 
-function renderHistory() {
-  const h = Store.getRuns();
-  if (!h.length) {
-    $("history-list").innerHTML = `<p class="muted">אין ריצות עדיין.</p>`;
-    return;
-  }
-  // Keep approved runs near the top; push unapproved (red speeds) lower.
-  const ranked = [...h].sort((a, b) => {
-    const aOk = a.analysis?.valid ? 0 : 1;
-    const bOk = b.analysis?.valid ? 0 : 1;
-    if (aOk !== bOk) return aOk - bOk;
-    return String(b.at || "").localeCompare(String(a.at || ""));
-  });
-  $("history-list").innerHTML = ranked
-    .map((e) => {
-      const valid = !!e.analysis?.valid;
-      const excluded = !!e.excludeFromPr;
-      const status = !valid ? "לא אושר" : excluded ? "הוסר מהגרף" : "אושר";
-      return `<li>
-        <span>${new Date(e.at).toLocaleString("he-IL")}<br>
-        <small class="muted">${e.tableTitle || ""} · ${status}</small></span>
-        <b class="${valid ? "" : "invalid"}">${Number(e.maxKmh).toFixed(1)} קמ״ש</b>
-      </li>`;
-    })
-    .join("");
-}
-
 function selectedTechniqueExercise() {
   const list = state.techniqueCatalog?.exercises || [];
   return list.find((e) => e.id === state.techniqueExerciseId) || list[0] || null;
 }
 
-function renderTechniqueExerciseChips() {
-  const host = $("technique-exercise-chips");
-  if (!host) return;
+function formatAccuracyLabel(score) {
+  if (score == null || Number.isNaN(Number(score))) return "דיוק: ממתין";
+  return `דיוק: ${Number(score)}%`;
+}
+
+function renderTechniqueExerciseSelect() {
+  const sel = $("technique-exercise-select");
+  if (!sel) return;
   const list = state.techniqueCatalog?.exercises || [];
   if (!list.length) {
-    host.innerHTML = `<p class="hint">אין תרגילים מוגדרים.</p>`;
+    sel.innerHTML = `<option value="">אין תרגילים מוגדרים</option>`;
+    sel.disabled = true;
     return;
   }
+  sel.disabled = false;
   if (!list.some((e) => e.id === state.techniqueExerciseId)) {
     state.techniqueExerciseId = list[0].id;
   }
-  host.innerHTML = list
+  sel.innerHTML = list
     .map(
       (e) =>
-        `<button type="button" class="league-chip${e.id === state.techniqueExerciseId ? " on" : ""}" role="option" aria-selected="${
-          e.id === state.techniqueExerciseId
-        }" data-exercise-id="${escAttr(e.id)}">${escAttr(e.name)}</button>`
+        `<option value="${escAttr(e.id)}"${e.id === state.techniqueExerciseId ? " selected" : ""}>${escAttr(e.name)}</option>`
     )
     .join("");
-}
-
-function renderConeLayout(exercise) {
-  const layout = exercise?.coneLayout || {};
-  const mapped = conePositions(layout);
-  const instruction = $("cone-instruction");
-  if (instruction) {
-    instruction.textContent =
-      layout.instructionHe ||
-      `סדרו ${mapped.count} קונוסים בקו ישר, ${mapped.spacingMeters} מ׳ בין קונוס לקונוס.`;
-  }
-  const meta = $("cone-meta");
-  if (meta) {
-    meta.innerHTML = `
-      <span class="cone-pill">${mapped.count} קונוסים</span>
-      <span class="cone-pill">${mapped.spacingMeters} מ׳ בין קונוס לקונוס</span>
-      <span class="cone-pill">אורך מסלול ≈ ${mapped.totalLengthMeters} מ׳</span>`;
-  }
-  const track = $("cone-track");
-  if (track) {
-    track.innerHTML =
-      mapped.positions
-        .map(
-          (p) => `<div class="cone-item" title="${p.metersFromStart} מ׳ מההתחלה">
-            <div class="cone-shape" aria-hidden="true"></div>
-            <span class="cone-idx">${p.index}</span>
-          </div>`
-        )
-        .join("") +
-      `<p class="cone-spacing-note" style="flex-basis:100%">המרווח והכמות מוגדרים לקובץ התרגיל (למפתח) — המשתמש רואה הנחיה בלבד.</p>`;
-  }
+  sel.value = state.techniqueExerciseId;
 }
 
 function renderTechniqueDemo(exercise) {
+  const host = $("technique-demo");
+  if (!host) return;
   const demo = exercise?.demoVideo || {};
-  const title = $("technique-demo-title");
-  const note = $("technique-demo-note");
-  const btn = $("technique-demo-btn");
-  if (title) title.textContent = demo.placeholderTitle || demo.title || "סרטון הדגמה";
-  if (note) note.textContent = demo.youtubeId ? "לחצו לצפייה" : demo.placeholderNote || "יוחלף בסרטון אמיתי בהמשך";
-  if (btn) {
-    btn.dataset.youtubeId = demo.youtubeId || "";
-    btn.dataset.title = demo.placeholderTitle || exercise?.name || "הדגמה";
+  const youtubeId = demo.youtubeId || "";
+  const title = demo.title || demo.placeholderTitle || exercise?.name || "סרטון הדגמה";
+  const thumb = youtubeThumbSrc(youtubeId);
+
+  if (!youtubeId || !thumb) {
+    host.innerHTML = `<article class="training-card" disabled>
+      <span class="training-slot">הדגמה</span>
+      <div class="training-frame"></div>
+      <p class="training-title">${escAttr(title)}</p>
+    </article>`;
+    return;
   }
+
+  host.innerHTML = `<button type="button" class="training-card" data-youtube-id="${escAttr(youtubeId)}" data-title="${escAttr(title)}" aria-label="פתיחת ${escAttr(title)}">
+    <span class="training-slot">הדגמה</span>
+    <div class="training-frame">
+      <img src="${thumb}" alt="" loading="lazy" />
+      <span class="training-play" aria-hidden="true"></span>
+    </div>
+    <p class="training-title">${escAttr(title)}</p>
+  </button>`;
 }
 
 function renderTechniqueHistory() {
@@ -1073,16 +1035,18 @@ function renderTechniqueHistory() {
   host.innerHTML = list
     .slice(0, 20)
     .map((s) => {
-      const score =
-        s.score == null || Number.isNaN(Number(s.score))
-          ? "ממתין"
-          : `${s.score}`;
-      const scoreClass = s.score == null ? "pending" : "";
+      const accuracy = formatAccuracyLabel(s.score);
+      const scoreClass =
+        s.score == null
+          ? "pending"
+          : s.score > TECHNIQUE_CHART_MIN_SCORE
+            ? "accuracy-high"
+            : "accuracy-low";
       return `<li class="tech-hist-row">
         <span>${new Date(s.at).toLocaleString("he-IL")}<br>
         <small class="muted">${escAttr(s.participantName || "—")} · ${escAttr(s.exerciseName || s.exerciseId || "")}</small></span>
         <span class="tech-hist-actions">
-          <b class="${scoreClass}">${score} · ${formatDurationMs(s.durationMs)}</b>
+          <b class="${scoreClass}">${escAttr(accuracy)} · ${formatDurationMs(s.durationMs)}</b>
           <button type="button" class="text-btn tech-wa" data-tech-id="${escAttr(s.id)}">WhatsApp</button>
         </span>
       </li>`;
@@ -1099,10 +1063,9 @@ function renderTechnique() {
   }
   const nameInput = $("participant-name");
   if (nameInput && !nameInput.value) nameInput.value = Store.getParticipantName();
-  renderTechniqueExerciseChips();
+  renderTechniqueExerciseSelect();
   const ex = selectedTechniqueExercise();
   renderTechniqueDemo(ex);
-  renderConeLayout(ex);
   renderTechniqueHistory();
 }
 
@@ -1446,7 +1409,6 @@ function wireUi() {
   document.querySelectorAll("nav.tabbar button").forEach((b) =>
     b.addEventListener("click", () => {
       const v = b.dataset.view;
-      if (v === "history") renderHistory();
       if (v === "improve") renderImprove();
       if (v === "experts") renderTraining();
       if (v === "technique") renderTechnique();
@@ -1461,8 +1423,8 @@ function wireUi() {
       showView(v);
     })
   );
-  $("technique-exercise-chips")?.addEventListener("click", (e) => {
-    const id = e.target.closest("[data-exercise-id]")?.dataset.exerciseId;
+  $("technique-exercise-select")?.addEventListener("change", (e) => {
+    const id = e.target.value;
     if (!id) return;
     state.techniqueExerciseId = id;
     renderTechnique();
@@ -1500,14 +1462,13 @@ function wireUi() {
     renderImprove();
     toast("מדידות הטכניקה נוקו");
   });
-  $("technique-demo-btn")?.addEventListener("click", () => {
-    const btn = $("technique-demo-btn");
-    const id = btn?.dataset.youtubeId;
-    if (!id) {
-      toast("סרטון ההדגמה עדיין לא הוגדר — זה placeholder");
-      return;
-    }
-    openVideoPlayer({ youtubeId: id, title: btn.dataset.title || "הדגמה" });
+  $("technique-demo")?.addEventListener("click", (e) => {
+    const card = e.target.closest(".training-card[data-youtube-id]");
+    if (!card) return;
+    openVideoPlayer({
+      youtubeId: card.dataset.youtubeId,
+      title: card.dataset.title,
+    });
   });
   $("training-grid")?.addEventListener("click", (e) => {
     const card = e.target.closest(".training-card[data-youtube-id]");
@@ -1545,7 +1506,6 @@ function wireUi() {
     if (!state.prPointId) return;
     Store.excludeFromPr(state.prPointId);
     closePrPointSheet();
-    renderHistory();
     renderImprove();
     renderProfile();
     renderRecords();
@@ -1583,13 +1543,6 @@ function wireUi() {
     $("records-tabs").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.board === tab));
     renderRecords();
   });
-  $("btn-clear-history")?.addEventListener("click", () => {
-    localStorage.removeItem("sprint.max.runs");
-    renderHistory();
-    renderProfile();
-    renderRecords();
-    renderAthleteCompare();
-  });
   wireInstall();
 }
 
@@ -1619,7 +1572,6 @@ async function init() {
   state.compareFilters = sanitizeCompareFilters(state.compareFilters);
   renderLeagues();
   renderProfile();
-  renderHistory();
   await loadTrainingCatalog();
   await loadTechniqueCatalog();
   renderImprove();

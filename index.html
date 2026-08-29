@@ -108,15 +108,6 @@
       <ul class="ladder" id="records-list"></ul>
     </section>
 
-    <section class="view" data-view="history">
-      <h1 class="page-title">הריצות שלי</h1>
-      <p class="hint">רשימת הריצות. גרפי התקדמות נמצאים במסך <strong>שיפור</strong>.</p>
-      <div class="history-list-block">
-        <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
-        <ul class="ladder" id="history-list"></ul>
-      </div>
-    </section>
-
     <section class="view" data-view="tables">
       <h1 class="page-title">מקצוענים</h1>
       <p class="hint">בחרו ענף, ליגה וקבוצה — והשוו את השיא שלכם מול ספורטאים.</p>
@@ -156,28 +147,18 @@
 
     <section class="view" data-view="technique">
       <h1 class="page-title">שיפור טכניקה</h1>
-      <p class="hint" id="technique-sub">בחרו תרגיל, סדרו קונוסים, והקליטו. הציון יושווה למודל בהמשך.</p>
+      <p class="hint" id="technique-sub">בחרו תרגיל, צפו בהדגמה, והקליטו. הציון יושווה למודל בהמשך.</p>
 
       <label class="field-lab" for="participant-name">שם משתתף (לתיעוד)</label>
       <input id="participant-name" maxlength="48" placeholder="למשל: משה" autocomplete="name" />
 
-      <p class="label tight">תרגיל</p>
-      <div class="chips" id="technique-exercise-chips" role="listbox" aria-label="בחירת תרגיל"></div>
+      <label class="field-lab" for="technique-exercise-select">תרגיל</label>
+      <select id="technique-exercise-select" aria-label="בחירת תרגיל">
+        <option value="slalom_one_foot">סלאלום רגל אחת</option>
+        <option value="slalom_two_feet">סלאלום 2 רגליים</option>
+      </select>
 
-      <div class="technique-demo" id="technique-demo">
-        <button type="button" class="demo-placeholder" id="technique-demo-btn" aria-label="סרטון הדגמה">
-          <span class="demo-placeholder-badge">הדגמה</span>
-          <span class="demo-placeholder-title" id="technique-demo-title">סרטון הדגמה</span>
-          <span class="demo-placeholder-note" id="technique-demo-note">יוחלף בסרטון אמיתי בהמשך</span>
-        </button>
-      </div>
-
-      <div class="cone-block" id="cone-block">
-        <h2 class="section-title">מיקום קונוסים</h2>
-        <p class="hint" id="cone-instruction"></p>
-        <div class="cone-meta" id="cone-meta"></div>
-        <div class="cone-track" id="cone-track" dir="ltr" aria-label="מפת קונוסים"></div>
-      </div>
+      <div class="technique-demo" id="technique-demo" dir="ltr"></div>
 
       <p class="hint tight" id="technique-placement-hint"></p>
 
@@ -197,7 +178,7 @@
       <div class="technique-result" id="technique-result" hidden>
         <h2 class="section-title">תוצאה</h2>
         <div class="stats two">
-          <div><em>ציון דיוק</em><b id="technique-score">—</b></div>
+          <div><em>רמת דיוק</em><b id="technique-score">—</b></div>
           <div><em>זמן</em><b id="technique-duration">—</b></div>
         </div>
         <p class="hint" id="technique-score-note"></p>
@@ -221,13 +202,13 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z" fill="currentColor"/></svg>
       ריצה
     </button>
+    <button type="button" data-view="technique">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v4c0 5 3.4 9.4 8 10.5C16.6 20.4 20 16 20 11V7l-8-4zm0 2.2 6 3v3.7c0 3.8-2.5 7.2-6 8.2-3.5-1-6-4.4-6-8.2V8.2l6-3z" fill="currentColor"/></svg>
+      טכניקה
+    </button>
     <button type="button" data-view="records">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19V9h3v10H6zm5 0V5h3v14h-3zm5 0v-6h3v6h-3z" fill="currentColor"/></svg>
       שיאים
-    </button>
-    <button type="button" data-view="history">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v7l4 2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-      היסטוריה
     </button>
     <button type="button" data-view="tables">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5zM5 10h14v4H5zM5 16h14v4H5z" fill="currentColor"/></svg>
@@ -240,10 +221,6 @@
     <button type="button" data-view="experts">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
       מומחים
-    </button>
-    <button type="button" data-view="technique">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v4c0 5 3.4 9.4 8 10.5C16.6 20.4 20 16 20 11V7l-8-4zm0 2.2 6 3v3.7c0 3.8-2.5 7.2-6 8.2-3.5-1-6-4.4-6-8.2V8.2l6-3z" fill="currentColor"/></svg>
-      טכניקה
     </button>
   </nav>
 
