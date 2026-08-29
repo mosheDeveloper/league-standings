@@ -147,10 +147,21 @@ export async function shareTechniqueToWhatsApp(session) {
   return "download-wa";
 }
 
-/** Series of score / duration points for improvement charts. */
-export function techniqueChartPoints(sessions, exerciseId, metric = "score") {
+/** Minimum accuracy (%) required for a technique attempt to enter the improve chart. */
+export const TECHNIQUE_CHART_MIN_SCORE = 90;
+
+/**
+ * Series of score / duration points for improvement charts.
+ * @param {{ minScore?: number|null }} [options] When set, only sessions with score > minScore are included.
+ */
+export function techniqueChartPoints(sessions, exerciseId, metric = "score", options = {}) {
+  const minScore = options.minScore;
   const list = [...(sessions || [])]
     .filter((s) => s && (!exerciseId || s.exerciseId === exerciseId))
+    .filter((s) => {
+      if (minScore == null) return true;
+      return Number.isFinite(s.score) && s.score > minScore;
+    })
     .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
 
   return list
@@ -162,9 +173,16 @@ export function techniqueChartPoints(sessions, exerciseId, metric = "score") {
         value = Number.isFinite(s.durationMs) ? s.durationMs / 1000 : null;
       }
       if (value == null) return null;
-      return { id: s.id, at: s.at, value, session: s };
+      return { id: s.id, at: s.at, value, score: s.score ?? null, session: s };
     })
     .filter(Boolean);
+}
+
+/** Sessions for an exercise history table (all attempts, newest first). */
+export function techniqueHistoryRows(sessions, exerciseId) {
+  return [...(sessions || [])]
+    .filter((s) => s && (!exerciseId || s.exerciseId === exerciseId))
+    .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
 }
 
 export function conePositions(layout = {}) {

@@ -1,4 +1,4 @@
-const CACHE = "sprint-max-v15";
+const CACHE = "sprint-max-v16";
 const ASSETS = [
   "./",
   "./index.html",
