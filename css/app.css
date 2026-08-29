@@ -233,11 +233,34 @@ h1, .page-title {
 
 .section-title { font-size: 18px; margin: 8px 0; }
 
-.pr-chart-block {
+.pr-chart-block,
+.improve-exercise-block {
   margin: 4px 0 8px;
   padding: 14px 12px 10px;
   background: rgba(255,255,255,.04);
   border-radius: 22px;
+}
+.improve-exercise-block + .improve-exercise-block { margin-top: 14px; }
+.improve-history-block {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.improve-history-block .label { margin-bottom: 6px; }
+.improve-event-meta { color: var(--dim); font-weight: 600; font-size: 12px; }
+.improve-event-badge {
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(198,255,58,.14);
+  color: var(--lime);
+  font-size: 11px;
+  font-weight: 800;
+}
+.improve-event-badge.muted-badge {
+  background: rgba(255,255,255,.06);
+  color: var(--dim);
 }
 .pr-chart-head .section-title { margin: 0 0 4px; font-size: 17px; }
 .pr-chart-wrap {

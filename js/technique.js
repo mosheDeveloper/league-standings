@@ -147,6 +147,60 @@ export async function shareTechniqueToWhatsApp(session) {
   return "download-wa";
 }
 
+/** Minimum execution accuracy (%) for a technique time to count as a personal record. */
+export const TECHNIQUE_RECORD_MIN_ACCURACY = 90;
+
+/**
+ * Provisional execution accuracy until model / DB comparison is wired.
+ * @returns {number} 0–100
+ */
+export function techniqueExecutionAccuracy(_session) {
+  return TECHNIQUE_RECORD_MIN_ACCURACY;
+}
+
+export function isEligibleTechniqueTimeRecord(session, exerciseId) {
+  if (!session || session.excludeFromPr) return false;
+  if (exerciseId && session.exerciseId !== exerciseId) return false;
+  const durationMs = Number(session.durationMs);
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return false;
+  return techniqueExecutionAccuracy(session) >= TECHNIQUE_RECORD_MIN_ACCURACY;
+}
+
+/**
+ * Walk sessions oldest → newest and keep only new personal bests (fastest time).
+ * @returns {{ id: string, at: string, durationMs: number, durationSec: number, accuracy: number, session: object }[]}
+ */
+export function ascendingTechniqueTimeRecords(sessions, exerciseId) {
+  const chronological = [...(sessions || [])]
+    .filter((s) => isEligibleTechniqueTimeRecord(s, exerciseId))
+    .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
+
+  const points = [];
+  let bestMs = Infinity;
+  for (const session of chronological) {
+    const durationMs = Number(session.durationMs);
+    if (durationMs < bestMs - 49) {
+      bestMs = durationMs;
+      points.push({
+        id: session.id,
+        at: session.at,
+        durationMs,
+        durationSec: durationMs / 1000,
+        accuracy: techniqueExecutionAccuracy(session),
+        session,
+      });
+    }
+  }
+  return points;
+}
+
+/** Sessions for one exercise, newest first (event history). */
+export function techniqueExerciseHistory(sessions, exerciseId) {
+  return [...(sessions || [])]
+    .filter((s) => s && s.exerciseId === exerciseId)
+    .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+}
+
 /** Series of score / duration points for improvement charts. */
 export function techniqueChartPoints(sessions, exerciseId, metric = "score") {
   const list = [...(sessions || [])]
