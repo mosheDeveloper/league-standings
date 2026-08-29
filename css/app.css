@@ -233,6 +233,10 @@ h1, .page-title {
 
 .section-title { font-size: 18px; margin: 8px 0; }
 
+.improve-tabs {
+  margin: 4px 0 12px;
+}
+
 .pr-chart-block,
 .improve-exercise-block {
   margin: 4px 0 8px;
