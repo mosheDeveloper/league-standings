@@ -19,6 +19,8 @@ import {
   deviceInfo,
   shareTechniqueToWhatsApp,
   techniqueChartPoints,
+  techniqueHistoryRows,
+  TECHNIQUE_CHART_MIN_SCORE,
 } from "./technique.js";
 import {
   getSession,
@@ -765,45 +767,45 @@ function improveChartOptions() {
   const opts = [
     {
       id: "speed_prs",
-      label: "שיאי מהירות",
+      label: "ריצה",
       title: "גרף שיאים עולים",
       sub: "כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.",
       tip: "לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).",
       kind: "speed_prs",
+      historyTitle: "היסטוריית ריצות",
     },
   ];
   for (const ex of state.techniqueCatalog?.exercises || []) {
-    const short = ex.id === "slalom_one_foot" ? "רגל אחת" : ex.id === "slalom_two_feet" ? "שתי רגליים" : ex.name;
     opts.push({
-      id: `tech_score_${ex.id}`,
-      label: `ציון · ${short}`,
-      title: `ציון דיוק — ${ex.name}`,
-      sub: "ציוני מדידות לאורך זמן (0–100). עד חיבור מודל זה ציון זמני.",
-      tip: "",
-      kind: "technique_score",
-      exerciseId: ex.id,
-    });
-    opts.push({
-      id: `tech_time_${ex.id}`,
-      label: `זמן · ${short}`,
+      id: `tech_${ex.id}`,
+      label: ex.name,
       title: `זמן ביצוע — ${ex.name}`,
-      sub: "משך המדידה בשניות לאורך זמן.",
-      tip: "",
-      kind: "technique_time",
+      sub: "הגרף מציג את משך הביצוע בשניות.",
+      tip: `לגרף נכנסים רק ביצועים שרמת הדיוק שלהם עולה על ${TECHNIQUE_CHART_MIN_SCORE}%. שאר הביצועים נשמרים בהיסטוריה למטה.`,
+      kind: "technique",
       exerciseId: ex.id,
+      historyTitle: `היסטוריה — ${ex.name}`,
     });
   }
   return opts;
+}
+
+function normalizeImproveChartId(id) {
+  const raw = String(id || "");
+  if (raw.startsWith("tech_score_")) return `tech_${raw.slice("tech_score_".length)}`;
+  if (raw.startsWith("tech_time_")) return `tech_${raw.slice("tech_time_".length)}`;
+  return raw || "speed_prs";
 }
 
 function renderImproveChartChips() {
   const host = $("improve-chart-chips");
   if (!host) return;
   const opts = improveChartOptions();
+  state.improveChartId = normalizeImproveChartId(state.improveChartId);
   if (!opts.some((o) => o.id === state.improveChartId)) {
     state.improveChartId = opts[0]?.id || "speed_prs";
-    Store.setImproveChartId(state.improveChartId);
   }
+  Store.setImproveChartId(state.improveChartId);
   host.innerHTML = opts
     .map(
       (o) =>
@@ -878,21 +880,83 @@ function renderImproveChart() {
     return;
   }
 
-  if (opt.kind === "technique_score") {
-    const points = techniqueChartPoints(Store.getTechniqueSessions(), opt.exerciseId, "score");
-    renderGenericLineChart(host, points, {
-      emptyHtml: `<div class="pr-chart-empty">עדיין אין ציונים לתרגיל זה.<br>השלימו מדידה במסך טכניקה.</div>`,
+  if (opt.kind === "technique") {
+    const points = techniqueChartPoints(Store.getTechniqueSessions(), opt.exerciseId, "durationSec", {
+      minScore: TECHNIQUE_CHART_MIN_SCORE,
     });
+    renderGenericLineChart(host, points, {
+      valueSuffix: "",
+      emptyHtml: `<div class="pr-chart-empty">עדיין אין ביצועים עם דיוק מעל ${TECHNIQUE_CHART_MIN_SCORE}% לתרגיל זה.<br>השלימו מדידה מדויקת במסך טכניקה.</div>`,
+    });
+  }
+}
+
+function formatAccuracyLabel(score) {
+  if (score == null || Number.isNaN(Number(score))) return "דיוק: ממתין";
+  return `דיוק: ${Number(score)}%`;
+}
+
+function renderImproveHistory() {
+  const host = $("improve-history-list");
+  const title = $("improve-history-title");
+  if (!host) return;
+  const opt = improveChartOptions().find((o) => o.id === state.improveChartId) || improveChartOptions()[0];
+  if (title) title.textContent = opt?.historyTitle || "היסטוריית אירועים";
+
+  if (!opt || opt.kind === "speed_prs") {
+    const runs = [...Store.getRuns()].sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+    if (!runs.length) {
+      host.innerHTML = `<p class="muted">אין ריצות עדיין.</p>`;
+      return;
+    }
+    host.innerHTML = runs
+      .slice(0, 40)
+      .map((e) => {
+        const valid = !!e.analysis?.valid;
+        const excluded = !!e.excludeFromPr;
+        const status = !valid ? "לא אושר" : excluded ? "הוסר מהגרף" : "אושר";
+        return `<li>
+          <span>${new Date(e.at).toLocaleString("he-IL")}<br>
+          <small class="muted">${escAttr(e.tableTitle || "")} · ${status}</small></span>
+          <b class="${valid ? "" : "invalid"}">${Number(e.maxKmh || 0).toFixed(1)} קמ״ש</b>
+        </li>`;
+      })
+      .join("");
     return;
   }
 
-  if (opt.kind === "technique_time") {
-    const points = techniqueChartPoints(Store.getTechniqueSessions(), opt.exerciseId, "durationSec");
-    renderGenericLineChart(host, points, {
-      valueSuffix: "",
-      emptyHtml: `<div class="pr-chart-empty">עדיין אין זמנים לתרגיל זה.<br>השלימו מדידה במסך טכניקה.</div>`,
-    });
+  if (opt.kind === "technique") {
+    const rows = techniqueHistoryRows(Store.getTechniqueSessions(), opt.exerciseId);
+    if (!rows.length) {
+      host.innerHTML = `<p class="muted">אין ביצועים לתרגיל זה עדיין.</p>`;
+      return;
+    }
+    host.innerHTML = rows
+      .slice(0, 40)
+      .map((s) => {
+        const accuracy = formatAccuracyLabel(s.score);
+        const onChart =
+          Number.isFinite(s.score) && s.score > TECHNIQUE_CHART_MIN_SCORE ? "בגרף" : "לא בגרף";
+        const scoreClass =
+          s.score == null
+            ? "pending"
+            : s.score > TECHNIQUE_CHART_MIN_SCORE
+              ? "accuracy-high"
+              : "accuracy-low";
+        return `<li>
+          <span>${new Date(s.at).toLocaleString("he-IL")}<br>
+          <small class="muted">${escAttr(s.participantName || "—")} · ${escAttr(accuracy)} · ${onChart}</small></span>
+          <b class="${scoreClass}">${formatDurationMs(s.durationMs)}</b>
+        </li>`;
+      })
+      .join("");
   }
+}
+
+function renderImprove() {
+  renderImproveChartChips();
+  renderImproveChart();
+  renderImproveHistory();
 }
 
 function renderSpeedPrChart(host, points) {
@@ -934,13 +998,9 @@ function renderSpeedPrChart(host, points) {
   bindPrPointGestures(host);
 }
 
-function renderImprove() {
-  renderImproveChartChips();
-  renderImproveChart();
-}
-
 function renderPrChart() {
   renderImproveChart();
+  renderImproveHistory();
 }
 
 function selectedTechniqueExercise() {
@@ -1008,16 +1068,18 @@ function renderTechniqueHistory() {
   host.innerHTML = list
     .slice(0, 20)
     .map((s) => {
-      const score =
-        s.score == null || Number.isNaN(Number(s.score))
-          ? "ממתין"
-          : `${s.score}`;
-      const scoreClass = s.score == null ? "pending" : "";
+      const accuracy = formatAccuracyLabel(s.score);
+      const scoreClass =
+        s.score == null
+          ? "pending"
+          : s.score > TECHNIQUE_CHART_MIN_SCORE
+            ? "accuracy-high"
+            : "accuracy-low";
       return `<li class="tech-hist-row">
         <span>${new Date(s.at).toLocaleString("he-IL")}<br>
         <small class="muted">${escAttr(s.participantName || "—")} · ${escAttr(s.exerciseName || s.exerciseId || "")}</small></span>
         <span class="tech-hist-actions">
-          <b class="${scoreClass}">${score} · ${formatDurationMs(s.durationMs)}</b>
+          <b class="${scoreClass}">${escAttr(accuracy)} · ${formatDurationMs(s.durationMs)}</b>
           <button type="button" class="text-btn tech-wa" data-tech-id="${escAttr(s.id)}">WhatsApp</button>
         </span>
       </li>`;
@@ -1148,9 +1210,15 @@ async function stopTechniqueRun() {
 
   $("technique-result").hidden = false;
   $("technique-score").textContent =
-    scoring.score == null ? "ממתין למודל" : `${scoring.score}/100`;
+    scoring.score == null ? "ממתין למודל" : `${scoring.score}%`;
   $("technique-duration").textContent = formatDurationMs(raw.durationMs);
-  $("technique-score-note").textContent = scoring.noteHe || "";
+  const chartNote =
+    scoring.score != null && scoring.score > TECHNIQUE_CHART_MIN_SCORE
+      ? `רמת הדיוק מעל ${TECHNIQUE_CHART_MIN_SCORE}% — הביצוע ייכנס לגרף בשיפור.`
+      : scoring.score != null
+        ? `רמת דיוק עד ${TECHNIQUE_CHART_MIN_SCORE}% לא נכנסת לגרף — רק להיסטוריה.`
+        : "";
+  $("technique-score-note").textContent = [scoring.noteHe || "", chartNote].filter(Boolean).join(" ");
   renderTechniqueHistory();
   renderImprove();
   toast("המדידה נשמרה — אפשר לשתף ל־WhatsApp");

@@ -136,7 +136,7 @@
     <section class="view" data-view="improve">
       <h1 class="page-title">שיפור</h1>
       <p class="hint">גרפי התקדמות לפי סוג מדידה. בחרו מה להציג.</p>
-      <p class="label tight">סוג גרף</p>
+      <p class="label tight">סוג מדידה</p>
       <div class="chips" id="improve-chart-chips" role="listbox" aria-label="בחירת גרף"></div>
       <div class="pr-chart-block">
         <div class="pr-chart-head">
@@ -145,6 +145,10 @@
         </div>
         <div class="pr-chart-wrap" id="pr-chart" dir="ltr" aria-label="גרף התקדמות"></div>
         <p class="hint pr-chart-tip" id="improve-chart-tip">לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).</p>
+      </div>
+      <div class="improve-history-block" id="improve-history-block">
+        <h2 class="section-title" id="improve-history-title">היסטוריית אירועים</h2>
+        <ul class="ladder" id="improve-history-list"></ul>
       </div>
     </section>
 
@@ -187,7 +191,7 @@
       <div class="technique-result" id="technique-result" hidden>
         <h2 class="section-title">תוצאה</h2>
         <div class="stats two">
-          <div><em>ציון דיוק</em><b id="technique-score">—</b></div>
+          <div><em>רמת דיוק</em><b id="technique-score">—</b></div>
           <div><em>זמן</em><b id="technique-duration">—</b></div>
         </div>
         <p class="hint" id="technique-score-note"></p>
@@ -211,6 +215,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z" fill="currentColor"/></svg>
       ריצה
     </button>
+    <button type="button" data-view="technique">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v4c0 5 3.4 9.4 8 10.5C16.6 20.4 20 16 20 11V7l-8-4zm0 2.2 6 3v3.7c0 3.8-2.5 7.2-6 8.2-3.5-1-6-4.4-6-8.2V8.2l6-3z" fill="currentColor"/></svg>
+      טכניקה
+    </button>
     <button type="button" data-view="records">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19V9h3v10H6zm5 0V5h3v14h-3zm5 0v-6h3v6h-3z" fill="currentColor"/></svg>
       שיאים
@@ -226,10 +234,6 @@
     <button type="button" data-view="experts">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
       מומחים
-    </button>
-    <button type="button" data-view="technique">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v4c0 5 3.4 9.4 8 10.5C16.6 20.4 20 16 20 11V7l-8-4zm0 2.2 6 3v3.7c0 3.8-2.5 7.2-6 8.2-3.5-1-6-4.4-6-8.2V8.2l6-3z" fill="currentColor"/></svg>
-      טכניקה
     </button>
   </nav>
 
