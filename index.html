@@ -110,14 +110,7 @@
 
     <section class="view" data-view="history">
       <h1 class="page-title">הריצות שלי</h1>
-      <div class="pr-chart-block">
-        <div class="pr-chart-head">
-          <h2 class="section-title">גרף שיאים עולים</h2>
-          <p class="hint tight">כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.</p>
-        </div>
-        <div class="pr-chart-wrap" id="pr-chart" dir="ltr" aria-label="גרף שיאים אישיים עולים"></div>
-        <p class="hint pr-chart-tip">לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).</p>
-      </div>
+      <p class="hint">רשימת הריצות. גרפי התקדמות נמצאים במסך <strong>שיפור</strong>.</p>
       <div class="history-list-block">
         <div class="row-end"><button class="text-btn" id="btn-clear-history" type="button">ניקוי</button></div>
         <ul class="ladder" id="history-list"></ul>
@@ -149,16 +142,90 @@
       <p class="hint" id="compare-disclaimer"></p>
     </section>
 
-    <section class="view" data-view="training">
-      <h1 class="page-title" id="training-title">שיפור ביצועים</h1>
-      <p class="hint" id="training-sub">סרטוני הדרכה. לחצו על סרטון כדי לפתוח נגן במסך מלא.</p>
+    <section class="view" data-view="improve">
+      <h1 class="page-title">שיפור</h1>
+      <p class="hint">גרפי התקדמות לפי סוג מדידה. בחרו מה להציג.</p>
+      <p class="label tight">סוג גרף</p>
+      <div class="chips" id="improve-chart-chips" role="listbox" aria-label="בחירת גרף"></div>
+      <div class="pr-chart-block">
+        <div class="pr-chart-head">
+          <h2 class="section-title" id="improve-chart-title">גרף שיאים עולים</h2>
+          <p class="hint tight" id="improve-chart-sub">כל שיא אישי חדש — תאריך ומהירות, מחוברים בקו.</p>
+        </div>
+        <div class="pr-chart-wrap" id="pr-chart" dir="ltr" aria-label="גרף התקדמות"></div>
+        <p class="hint pr-chart-tip" id="improve-chart-tip">לחיצה ארוכה על נקודה מסירה תיעוד שיא מהגרף (למשל אם מישהו אחר רץ עם הטלפון).</p>
+      </div>
+    </section>
+
+    <section class="view" data-view="experts">
+      <h1 class="page-title" id="training-title">למד מהמומחים</h1>
+      <p class="hint" id="training-sub">סרטוני הדרכה והשראה. לחצו על סרטון כדי לפתוח נגן במסך מלא.</p>
       <div class="training-grid" id="training-grid" dir="ltr" aria-label="סרטוני הדרכה"></div>
+    </section>
+
+    <section class="view" data-view="technique">
+      <h1 class="page-title">שיפור טכניקה</h1>
+      <p class="hint" id="technique-sub">בחרו תרגיל, סדרו קונוסים, והקליטו. הציון יושווה למודל בהמשך.</p>
+
+      <label class="field-lab" for="participant-name">שם משתתף (לתיעוד)</label>
+      <input id="participant-name" maxlength="48" placeholder="למשל: משה" autocomplete="name" />
+
+      <p class="label tight">תרגיל</p>
+      <div class="chips" id="technique-exercise-chips" role="listbox" aria-label="בחירת תרגיל"></div>
+
+      <div class="technique-demo" id="technique-demo">
+        <button type="button" class="demo-placeholder" id="technique-demo-btn" aria-label="סרטון הדגמה">
+          <span class="demo-placeholder-badge">הדגמה</span>
+          <span class="demo-placeholder-title" id="technique-demo-title">סרטון הדגמה</span>
+          <span class="demo-placeholder-note" id="technique-demo-note">יוחלף בסרטון אמיתי בהמשך</span>
+        </button>
+      </div>
+
+      <div class="cone-block" id="cone-block">
+        <h2 class="section-title">מיקום קונוסים</h2>
+        <p class="hint" id="cone-instruction"></p>
+        <div class="cone-meta" id="cone-meta"></div>
+        <div class="cone-track" id="cone-track" dir="ltr" aria-label="מפת קונוסים"></div>
+      </div>
+
+      <p class="hint tight" id="technique-placement-hint"></p>
+
+      <div class="technique-actions">
+        <button type="button" class="cta" id="btn-technique-start">התחל מדידה</button>
+        <button type="button" class="stop" id="btn-technique-stop" hidden disabled>עצירת מדידה</button>
+      </div>
+
+      <div class="technique-live" id="technique-live" hidden>
+        <p class="live-kicker">מדידת טכניקה</p>
+        <div class="stats two">
+          <div><em>זמן</em><b id="technique-live-time">00:00.0</b></div>
+          <div><em>דגימות</em><b id="technique-live-samples">0</b></div>
+        </div>
+      </div>
+
+      <div class="technique-result" id="technique-result" hidden>
+        <h2 class="section-title">תוצאה</h2>
+        <div class="stats two">
+          <div><em>ציון דיוק</em><b id="technique-score">—</b></div>
+          <div><em>זמן</em><b id="technique-duration">—</b></div>
+        </div>
+        <p class="hint" id="technique-score-note"></p>
+        <button type="button" class="cta" id="btn-technique-whatsapp">שתף מדידה ל־WhatsApp</button>
+      </div>
+
+      <div class="technique-history-block">
+        <div class="row-between">
+          <h2 class="section-title">מדידות אחרונות</h2>
+          <button type="button" class="text-btn" id="btn-clear-technique">ניקוי</button>
+        </div>
+        <ul class="ladder" id="technique-history-list"></ul>
+      </div>
     </section>
   </div>
 
   <div class="toast" id="toast" aria-live="polite"></div>
 
-  <nav class="tabbar" aria-label="ראשי">
+  <nav class="tabbar tabbar-wide" aria-label="ראשי">
     <button type="button" class="active" data-view="home">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z" fill="currentColor"/></svg>
       ריצה
@@ -175,9 +242,17 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v4H5zM5 10h14v4H5zM5 16h14v4H5z" fill="currentColor"/></svg>
       מקצוענים
     </button>
-    <button type="button" data-view="training">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+    <button type="button" data-view="improve">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18V10h3v8H4zm5 0V6h3v12H9zm5 0v-5h3v5h-3zm5 0V4h3v14h-3z" fill="currentColor"/></svg>
       שיפור
+    </button>
+    <button type="button" data-view="experts">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+      מומחים
+    </button>
+    <button type="button" data-view="technique">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v4c0 5 3.4 9.4 8 10.5C16.6 20.4 20 16 20 11V7l-8-4zm0 2.2 6 3v3.7c0 3.8-2.5 7.2-6 8.2-3.5-1-6-4.4-6-8.2V8.2l6-3z" fill="currentColor"/></svg>
+      טכניקה
     </button>
   </nav>
 

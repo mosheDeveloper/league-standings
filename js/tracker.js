@@ -29,15 +29,39 @@ export class Tracker {
     return m;
   }
 
-  ingest({ t = Date.now(), speedKmh, accMag, tiltBeta, tiltGamma, accuracy = 8, lat, lng }) {
+  ingest({
+    t = Date.now(),
+    speedKmh,
+    accMag,
+    ax,
+    ay,
+    az,
+    gx,
+    gy,
+    gz,
+    tiltBeta,
+    tiltGamma,
+    accuracy = 8,
+    lat,
+    lng,
+  }) {
     if (!this.active) return;
     if (speedKmh != null) {
       this.gps.push({ t, speedKmh, accuracy, lat, lng });
     }
-    if (accMag != null) {
+    if (accMag != null || ax != null || ay != null || az != null) {
+      const mag =
+        accMag ??
+        Math.sqrt((ax || 0) ** 2 + (ay || 0) ** 2 + (az || 0) ** 2);
       this.motion.push({
         t,
-        accMag,
+        accMag: mag,
+        ax: ax ?? null,
+        ay: ay ?? null,
+        az: az ?? null,
+        gx: gx ?? null,
+        gy: gy ?? null,
+        gz: gz ?? null,
         tiltBeta: tiltBeta ?? this._tilt.beta,
         tiltGamma: tiltGamma ?? this._tilt.gamma,
       });
@@ -79,10 +103,23 @@ export class Tracker {
     }
 
     this._motionHandler = (ev) => {
-      const a = ev.accelerationIncludingGravity;
+      const a = ev.accelerationIncludingGravity || ev.acceleration;
       if (!a) return;
-      const mag = Math.sqrt((a.x || 0) ** 2 + (a.y || 0) ** 2 + (a.z || 0) ** 2);
-      this.ingest({ accMag: mag, t: Date.now() });
+      const ax = a.x || 0;
+      const ay = a.y || 0;
+      const az = a.z || 0;
+      const mag = Math.sqrt(ax * ax + ay * ay + az * az);
+      const r = ev.rotationRate;
+      this.ingest({
+        t: Date.now(),
+        accMag: mag,
+        ax,
+        ay,
+        az,
+        gx: r?.alpha ?? null,
+        gy: r?.beta ?? null,
+        gz: r?.gamma ?? null,
+      });
     };
     this._orientHandler = (ev) => {
       this._tilt.beta = ev.beta || 0;

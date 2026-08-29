@@ -1,4 +1,4 @@
-const CACHE = "sprint-max-v13";
+const CACHE = "sprint-max-v14";
 const ASSETS = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const ASSETS = [
   "./js/records.js",
   "./js/community.js",
   "./js/pr-progress.js",
+  "./js/technique.js",
   "./js/simulator.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
@@ -21,6 +22,7 @@ const ASSETS = [
   "./data/auth.json",
   "./data/records.json",
   "./data/training-videos.json",
+  "./data/technique-exercises.json",
   "./data/leagues/athletics-stars.json",
   "./data/leagues/premier-league.json",
   "./data/leagues/la-liga.json",
