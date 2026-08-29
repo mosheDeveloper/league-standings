@@ -1,6 +1,6 @@
 {
   "title": "שיפור טכניקה",
-  "subtitle": "בחרו תרגיל, סדרו קונוסים לפי ההנחיה, והקליטו מדידה. הציון יושווה למודל בהמשך.",
+  "subtitle": "בחרו תרגיל, צפו בהדגמה, והקליטו מדידה. הציון יושווה למודל בהמשך.",
   "phonePlacementHint": "שימו את הטלפון בכיס הצדדי לאורך כל התרגיל.",
   "exercises": [
     {
@@ -8,9 +8,9 @@
       "name": "סלאלום רגל אחת",
       "description": "עברו בין הקונוסים על רגל אחת, לסירוגין לפי ההדגמה.",
       "demoVideo": {
-        "youtubeId": "",
-        "placeholderTitle": "סרטון הדגמה — סלאלום רגל אחת",
-        "placeholderNote": "יוחלף בסרטון אמיתי בהמשך"
+        "youtubeId": "JgtOMn5PFU0",
+        "title": "הדגמה — סלאלום רגל אחת (placeholder רונאלדו)",
+        "placeholderNote": "סרטון placeholder — יוחלף בהדגמה האמיתית"
       },
       "coneLayout": {
         "count": 10,
@@ -25,12 +25,12 @@
     },
     {
       "id": "slalom_two_feet",
-      "name": "סלאלום שתי רגליים",
+      "name": "סלאלום 2 רגליים",
       "description": "עברו בין הקונוסים בריצה / דילוג על שתי רגליים לפי ההדגמה.",
       "demoVideo": {
-        "youtubeId": "",
-        "placeholderTitle": "סרטון הדגמה — סלאלום שתי רגליים",
-        "placeholderNote": "יוחלף בסרטון אמיתי בהמשך"
+        "youtubeId": "LXqPEpeokCg",
+        "title": "הדגמה — סלאלום 2 רגליים (placeholder רונאלדיניו)",
+        "placeholderNote": "סרטון placeholder — יוחלף בהדגמה האמיתית"
       },
       "coneLayout": {
         "count": 10,
