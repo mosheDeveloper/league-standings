@@ -63,6 +63,18 @@ test("buildTechniqueExport packages raw samples and participant name", () => {
   assert.match(techniqueWhatsAppSummary(exp), /72\/100/);
 });
 
+test("technique exercises expose distinct demo youtube placeholders", async () => {
+  const { readFileSync } = await import("node:fs");
+  const catalog = JSON.parse(readFileSync(new URL("../data/technique-exercises.json", import.meta.url), "utf8"));
+  const one = catalog.exercises.find((e) => e.id === "slalom_one_foot");
+  const two = catalog.exercises.find((e) => e.id === "slalom_two_feet");
+  assert.equal(one?.name, "סלאלום רגל אחת");
+  assert.equal(two?.name, "סלאלום 2 רגליים");
+  assert.equal(one?.demoVideo?.youtubeId, "JgtOMn5PFU0");
+  assert.equal(two?.demoVideo?.youtubeId, "LXqPEpeokCg");
+  assert.notEqual(one.demoVideo.youtubeId, two.demoVideo.youtubeId);
+});
+
 test("techniqueChartPoints filters by exercise and metric", () => {
   const sessions = [
     { id: "a", at: "2026-01-01T00:00:00.000Z", exerciseId: "slalom_one_foot", score: 40, durationMs: 9000 },
