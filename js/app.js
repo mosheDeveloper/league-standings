@@ -781,7 +781,7 @@ function improveChartOptions() {
       label: ex.name,
       title: `זמן ביצוע — ${ex.name}`,
       sub: "הגרף מציג את משך הביצוע בשניות.",
-      tip: `רק ביצועים עם רמת דיוק מעל ${TECHNIQUE_CHART_MIN_SCORE}% נכנסים לגרף. כל הביצועים מופיעים בהיסטוריה למטה.`,
+      tip: `לגרף נכנסים רק ביצועים שרמת הדיוק שלהם עולה על ${TECHNIQUE_CHART_MIN_SCORE}%. שאר הביצועים נשמרים בהיסטוריה למטה.`,
       kind: "technique",
       exerciseId: ex.id,
       historyTitle: `היסטוריה — ${ex.name}`,
