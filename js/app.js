@@ -889,7 +889,7 @@ function renderImproveChart() {
   if (opt.kind === "technique_time") {
     const points = techniqueChartPoints(Store.getTechniqueSessions(), opt.exerciseId, "durationSec");
     renderGenericLineChart(host, points, {
-      valueSuffix: "ש׳",
+      valueSuffix: "",
       emptyHtml: `<div class="pr-chart-empty">עדיין אין זמנים לתרגיל זה.<br>השלימו מדידה במסך טכניקה.</div>`,
     });
   }
