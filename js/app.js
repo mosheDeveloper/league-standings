@@ -1056,10 +1056,13 @@ function renderTechniqueHistory() {
           ? "ממתין"
           : `${s.score}`;
       const scoreClass = s.score == null ? "pending" : "";
-      return `<li>
+      return `<li class="tech-hist-row">
         <span>${new Date(s.at).toLocaleString("he-IL")}<br>
         <small class="muted">${escAttr(s.participantName || "—")} · ${escAttr(s.exerciseName || s.exerciseId || "")}</small></span>
-        <b class="${scoreClass}">${score} · ${formatDurationMs(s.durationMs)}</b>
+        <span class="tech-hist-actions">
+          <b class="${scoreClass}">${score} · ${formatDurationMs(s.durationMs)}</b>
+          <button type="button" class="text-btn tech-wa" data-tech-id="${escAttr(s.id)}">WhatsApp</button>
+        </span>
       </li>`;
     })
     .join("");
@@ -1455,6 +1458,25 @@ function wireUi() {
   $("btn-technique-start")?.addEventListener("click", () => startTechniqueRun());
   $("btn-technique-stop")?.addEventListener("click", () => stopTechniqueRun());
   $("btn-technique-whatsapp")?.addEventListener("click", () => shareLastTechniqueWhatsApp());
+  $("technique-history-list")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-tech-id]");
+    if (!btn) return;
+    const id = btn.dataset.techId;
+    const session = Store.getTechniqueSessions().find((s) => s.id === id);
+    if (!session) {
+      toast("מדידה לא נמצאה");
+      return;
+    }
+    try {
+      const how = await shareTechniqueToWhatsApp(session);
+      if (how === "aborted") return;
+      if (how === "files") toast("נפתח שיתוף — בחרו WhatsApp");
+      else toast("הורדנו JSON ונפתח WhatsApp עם סיכום");
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      toast("לא ניתן לשתף — נסו שוב");
+    }
+  });
   $("btn-clear-technique")?.addEventListener("click", () => {
     localStorage.removeItem("sprint.max.techniqueSessions");
     state.lastTechniqueResult = null;

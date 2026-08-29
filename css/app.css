@@ -427,6 +427,18 @@ h1, .page-title {
 }
 .technique-history-block { margin-top: 8px; }
 .technique-history-block .ladder b.pending { color: var(--dim); }
+.tech-hist-row {
+  align-items: flex-start !important;
+}
+.tech-hist-actions {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+.tech-hist-actions .tech-wa {
+  font-size: 12px;
+  padding: 0;
+}
 
 #participant-name {
   width: 100%;
