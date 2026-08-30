@@ -1,7 +1,10 @@
 /**
  * Anti-cheat for phone-carried running speed.
  * GPS spike filter, cadence/tilt bounce, human cap, learned profile.
+ * Peak speed prefers GPS+IMU sensor fusion when inertial axes are present.
  */
+
+import { fuseSession } from "./sensor-fusion.js";
 
 export const HUMAN_SPEED_CAP_KMH = 45;
 const MS_PER_HOUR = 3.6;
@@ -159,16 +162,69 @@ export function updateProfile(profile, verifiedMaxKmh) {
   return buildProfile([...prev, { valid: true, maxSpeedKmh: verifiedMaxKmh }]);
 }
 
+function motionHasAxes(motion) {
+  return (motion || []).some(
+    (m) =>
+      (m.ax != null && Number.isFinite(m.ax)) ||
+      (m.ay != null && Number.isFinite(m.ay)) ||
+      (m.az != null && Number.isFinite(m.az))
+  );
+}
+
+/**
+ * Resolve peak speed: prefer live fused series from Tracker, else offline
+ * GPS+IMU fusion when accel axes exist, else filtered GPS only.
+ */
+export function resolvePeakSpeedKmh(session = {}) {
+  const gps = session.gps || [];
+  const motion = session.motion || [];
+  const kept = filterGpsPoints(gps);
+  const gpsMax = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
+
+  if (session.fused?.length) {
+    const fusedMax = Math.max(...session.fused.map((p) => p.fusedSpeedKmh || 0));
+    return {
+      maxSpeedKmh: Math.max(gpsMax, fusedMax),
+      gpsMaxKmh: gpsMax,
+      source: "live_fusion",
+      fusionDebug: session.fusionDebug || null,
+      keptGps: kept.length,
+    };
+  }
+
+  if (motionHasAxes(motion) && gps.length) {
+    const fused = fuseSession({ gps, motion });
+    // Trust fusion peak but never below cleaned GPS peak (fusion may warm slowly)
+    const maxSpeedKmh = Math.max(gpsMax, fused.fusedMaxKmh);
+    return {
+      maxSpeedKmh,
+      gpsMaxKmh: gpsMax,
+      source: "offline_fusion",
+      fusionDebug: fused.debug,
+      keptGps: kept.length,
+    };
+  }
+
+  return {
+    maxSpeedKmh: gpsMax,
+    gpsMaxKmh: gpsMax,
+    source: "gps_filtered",
+    fusionDebug: null,
+    keptGps: kept.length,
+  };
+}
+
 /**
  * Full analysis of a finished session.
- * @param {{gps:any[], motion:any[], durationMs?:number, profile?:any}} session
+ * @param {{gps:any[], motion:any[], fused?:any[], fusionDebug?:object, durationMs?:number, profile?:any}} session
  */
 export function analyzeRun(session = {}) {
   const gps = session.gps || [];
   const motion = session.motion || [];
   const rawMaxKmh = gps.length ? Math.max(...gps.map((p) => p.speedKmh || 0)) : 0;
   const kept = filterGpsPoints(gps);
-  const maxSpeedKmh = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
+  const peak = resolvePeakSpeedKmh(session);
+  const maxSpeedKmh = peak.maxSpeedKmh;
   const stats = motionStats(motion);
 
   const flags = [];
@@ -228,6 +284,9 @@ export function analyzeRun(session = {}) {
     maxSpeedKmh: rounded,
     maxKmh: rounded,
     rawMaxKmh: Math.round(rawMaxKmh * 10) / 10,
+    gpsMaxKmh: Math.round((peak.gpsMaxKmh || 0) * 10) / 10,
+    speedSource: peak.source,
+    fusionDebug: peak.fusionDebug,
     vehicleScore,
     runningLikeMotion: stats.runningLikeMotion,
     looksLikeRunning: stats.runningLikeMotion,

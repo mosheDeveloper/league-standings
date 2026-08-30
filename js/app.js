@@ -67,6 +67,9 @@ const state = {
   lastTechniqueResult: null,
   techniqueTicker: null,
   improveTabId: "speed_prs",
+  fusionDebug:
+    typeof location !== "undefined" &&
+    /(?:\?|&)fusionDebug=1(?:&|$)/.test(location.search || ""),
 };
 
 function toast(msg) {
@@ -589,6 +592,10 @@ function onLive(update) {
   } else if (update.gpsAccuracy != null) {
     $("live-status").textContent = `מיקום חי · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
   }
+  // Debug: ?fusionDebug=1 logs raw GPS vs fused speed for field testing
+  if (state.fusionDebug && update.fusion && (update.samples + update.motion) % 12 === 0) {
+    console.debug("[fusion]", update.fusion);
+  }
 }
 
 async function startRun() {
@@ -607,7 +614,7 @@ async function startRun() {
   $("live-time").textContent = "00:00";
   $("live-status").textContent = "מחכים למיקום ולתנועת הטלפון";
 
-  state.tracker = new Tracker(onLive);
+  state.tracker = new Tracker(onLive, { debug: !!state.fusionDebug });
   try {
     await state.tracker.startLive();
   } catch (e) {
@@ -1147,7 +1154,7 @@ async function startTechniqueRun() {
     if ($("technique-live-samples")) {
       $("technique-live-samples").textContent = String((live.samples || 0) + (live.motion || 0));
     }
-  });
+  }, { debug: !!state.fusionDebug });
   try {
     await state.tracker.startLive();
   } catch (err) {

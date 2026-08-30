@@ -3,7 +3,7 @@
 אפליקציית PWA (עובדת כמו אפליקציה בטלפון: אפשר להוסיף למסך הבית) למדידה חוזרת של **מהירות הריצה המקסימלית** בזמן שהטלפון עליכם.
 
 ## מה היא עושה
-- מודדת מהירות חיה + **שיא הריצה** מ־GPS.
+- מודדת מהירות חיה + **שיא הריצה** מ־**Sensor Fusion**: GPS (~1Hz) משולב עם מד־תאוצה/ג׳ירו (~75Hz) ומסונן ב־Kalman — תופס שיאי ספרינט ש־GPS לבד מפספס.
 - מזהה רמאות מסוג נסיעה ברכב: מקצב צעדים, bounce, ו־**tilt** של הטלפון.
 - אחרי כמה ריצות מאושרות בונה **פרופיל אישי** — קפיצה למהירות רכב בלי טלטול ריצה תיפסל.
 - בסוף הריצה מציבה אתכם מול טבלת ספורטאים שבחרתם.
@@ -69,4 +69,6 @@ npm test
 Push to `main` publishes the PWA to GitHub Pages via `.github/workflows/deploy.yml` (runs unit tests first). Enable **Settings → Pages → GitHub Actions**.
 
 ## English
-Mobile-first PWA: GPS + motion running speed, max km/h, GPS-lock required to start, anti-cheat (still phone / no tilt = car), editable JSON athlete tables, Hebrew RTL share.
+Mobile-first PWA: GPS + IMU sensor-fusion running speed (Kalman-filtered peak km/h), GPS-lock required to start, anti-cheat (still phone / no tilt = car), editable JSON athlete tables, Hebrew RTL share.
+
+Field-test fusion debug: open with `?fusionDebug=1` and watch `[fusion]` logs (raw GPS vs fused speed) in the browser console.
