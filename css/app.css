@@ -395,7 +395,8 @@ h1, .page-title {
   padding: 0;
 }
 
-#participant-name {
+#participant-name,
+#device-model {
   width: 100%;
   margin: 4px 0 12px;
   padding: 12px 14px;
@@ -405,6 +406,13 @@ h1, .page-title {
   color: var(--ink);
   font: inherit;
   font-weight: 700;
+}
+#device-model-field {
+  margin-bottom: 4px;
+}
+#device-model-field .hint {
+  margin-top: -6px;
+  margin-bottom: 10px;
 }
 .cta.danger {
   background: var(--red);

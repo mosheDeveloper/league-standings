@@ -4,6 +4,7 @@ import {
   formatDurationMs,
   scoreTechniqueSession,
   buildTechniqueExport,
+  buildMeasurementOutputs,
   techniqueWhatsAppSummary,
   techniqueChartPoints,
   techniqueHistoryRows,
@@ -11,6 +12,9 @@ import {
   techniqueExecutionAccuracy,
   TECHNIQUE_RECORD_MIN_ACCURACY,
   conePositions,
+  guessDeviceModelFromUa,
+  detectDeviceModel,
+  deviceInfo,
 } from "../js/technique.js";
 
 test("formatDurationMs pads minutes and tenths", () => {
@@ -52,28 +56,103 @@ test("scoreTechniqueSession returns null for too-short sessions", () => {
   assert.equal(result.score, null);
 });
 
-test("buildTechniqueExport packages raw samples and participant name", () => {
+test("guessDeviceModelFromUa reads Android model tokens", () => {
+  assert.equal(
+    guessDeviceModelFromUa(
+      "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A.240805.005) AppleWebKit/537.36"
+    ),
+    "Pixel 8"
+  );
+  assert.equal(guessDeviceModelFromUa("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"), null);
+});
+
+test("detectDeviceModel uses client hints when available", async () => {
+  const nav = {
+    userAgent: "Mozilla/5.0",
+    userAgentData: {
+      platform: "Android",
+      mobile: true,
+      getHighEntropyValues: async () => ({ model: "Pixel 8 Pro", platformVersion: "14.0.0" }),
+    },
+  };
+  const detected = await detectDeviceModel(nav);
+  assert.equal(detected.model, "Pixel 8 Pro");
+  assert.equal(detected.source, "ua_client_hints");
+});
+
+test("detectDeviceModel asks for user input when model is hidden", async () => {
+  const detected = await detectDeviceModel({
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+  });
+  assert.equal(detected.model, null);
+  assert.equal(detected.source, "unavailable");
+  assert.equal(detected.family, "iPhone");
+});
+
+test("buildTechniqueExport packages all measurement streams and device model", () => {
   const exp = buildTechniqueExport({
     participantName: "משה",
+    device: deviceInfo({ model: "Pixel 8", modelSource: "ua_client_hints" }),
     exercise: {
       id: "slalom_one_foot",
       name: "סלאלום רגל אחת",
+      description: "עברו בין הקונוסים",
       coneLayout: { count: 10, spacingMeters: 1, pattern: "straight_line" },
     },
     durationMs: 8500,
     score: 72,
     scoreStatus: "pending_model",
-    gps: [{ t: 1, speedKmh: 8 }],
-    motion: [{ t: 1, accMag: 11 }],
+    gps: [{ t: 1, speedKmh: 8, accuracy: 4, fusedSpeedKmh: 8.2 }],
+    motion: [{ t: 1, accMag: 11, ax: 1, ay: 2, az: 9 }],
+    fused: [{ t: 1, fusedSpeedKmh: 8.2 }],
+    fusionDebug: { peakFusedKmh: 8.2 },
   });
+  assert.equal(exp.schemaVersion, 2);
   assert.equal(exp.kind, "technique_session");
   assert.equal(exp.participantName, "משה");
+  assert.equal(exp.device.model, "Pixel 8");
+  assert.equal(exp.device.modelSource, "ua_client_hints");
   assert.equal(exp.exerciseId, "slalom_one_foot");
   assert.equal(exp.coneLayout.count, 10);
   assert.equal(exp.gps.length, 1);
   assert.equal(exp.motion.length, 1);
+  assert.equal(exp.fused.length, 1);
+  assert.equal(exp.measurements.gps.length, 1);
+  assert.equal(exp.measurements.motion.length, 1);
+  assert.equal(exp.measurements.fused.length, 1);
+  assert.equal(exp.fusionDebug.peakFusedKmh, 8.2);
+  assert.equal(exp.outputs.sampleCounts.gps, 1);
+  assert.equal(exp.outputs.sampleCounts.motion, 1);
+  assert.equal(exp.outputs.sampleCounts.fused, 1);
+  assert.equal(exp.outputs.maxSpeedKmh, 8);
+  assert.equal(exp.outputs.maxFusedSpeedKmh, 8.2);
   assert.match(techniqueWhatsAppSummary(exp), /משה/);
+  assert.match(techniqueWhatsAppSummary(exp), /Pixel 8/);
   assert.match(techniqueWhatsAppSummary(exp), /72\/100/);
+  assert.match(techniqueWhatsAppSummary(exp), /fused: 1/);
+});
+
+test("buildMeasurementOutputs summarizes peaks and sample counts", () => {
+  const out = buildMeasurementOutputs({
+    durationMs: 3000,
+    score: 90,
+    scoreStatus: "pending_model",
+    gps: [
+      { t: 1, speedKmh: 10, accuracy: 5 },
+      { t: 2, speedKmh: 12, accuracy: 7 },
+    ],
+    motion: [{ t: 1 }, { t: 2 }, { t: 3 }],
+    fused: [
+      { t: 1, fusedSpeedKmh: 11 },
+      { t: 2, fusedSpeedKmh: 13.4 },
+    ],
+  });
+  assert.equal(out.sampleCounts.gps, 2);
+  assert.equal(out.sampleCounts.motion, 3);
+  assert.equal(out.sampleCounts.fused, 2);
+  assert.equal(out.maxSpeedKmh, 12);
+  assert.equal(out.maxFusedSpeedKmh, 13.4);
+  assert.equal(out.meanGpsAccuracyM, 6);
 });
 
 test("technique exercises expose distinct demo youtube placeholders", async () => {
@@ -167,4 +246,5 @@ test("ascendingTechniqueTimeRecords keeps only improving fastest times", () => {
       ["b", 8500],
     ]
   );
+  assert.equal(TECHNIQUE_RECORD_MIN_ACCURACY, 90);
 });

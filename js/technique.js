@@ -11,14 +11,112 @@ export function formatDurationMs(ms) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${tenths}`;
 }
 
-export function deviceInfo() {
+/** Best-effort model parse from a classic User-Agent string. */
+export function guessDeviceModelFromUa(ua = "") {
+  const s = String(ua || "");
+  if (!s) return null;
+
+  // Android: "...; <Model> Build/..." or "...; <Model>)"
+  const android = s.match(/Android[^;]*;\s*([^;)]+?)(?:\s+Build\/|[;)])/i);
+  if (android?.[1]) {
+    const model = android[1].trim().replace(/\s+/g, " ");
+    if (model && !/^(wv|Mobile|U|Linux|arm(?:_?[a-z0-9]+)?)$/i.test(model)) {
+      return model.slice(0, 64);
+    }
+  }
+
+  // Classic iOS UA sometimes embeds hardware id (rare in modern Safari)
+  const iosHw = s.match(/\((iPhone|iPad|iPod)[^;]*;\s*([^;)]+)\)/i);
+  if (iosHw?.[2] && /iPhone\d/i.test(iosHw[2])) {
+    return iosHw[2].trim().slice(0, 64);
+  }
+
+  return null;
+}
+
+/**
+ * Try to read the device model without prompting the user.
+ * Prefer UA Client Hints (Chromium/Android), then UA heuristics.
+ * Returns { model, source } — model is null when the browser hides it (typical iOS).
+ */
+export async function detectDeviceModel(nav = typeof navigator !== "undefined" ? navigator : {}) {
+  const uaData = nav.userAgentData;
+  if (uaData?.getHighEntropyValues) {
+    try {
+      const hints = await uaData.getHighEntropyValues(["model", "platformVersion"]);
+      const model = String(hints?.model || "").trim();
+      if (model) {
+        return {
+          model: model.slice(0, 64),
+          source: "ua_client_hints",
+          platform: uaData.platform || null,
+          platformVersion: hints.platformVersion || null,
+          mobile: uaData.mobile ?? null,
+        };
+      }
+    } catch {
+      /* hints may be denied */
+    }
+  }
+
+  const fromUa = guessDeviceModelFromUa(nav.userAgent || "");
+  if (fromUa) {
+    return { model: fromUa, source: "user_agent" };
+  }
+
+  const ua = String(nav.userAgent || "");
+  if (/iPhone/i.test(ua)) return { model: null, source: "unavailable", family: "iPhone" };
+  if (/iPad/i.test(ua)) return { model: null, source: "unavailable", family: "iPad" };
+  return { model: null, source: "unavailable", family: null };
+}
+
+export function deviceInfo(overrides = {}) {
   const nav = typeof navigator !== "undefined" ? navigator : {};
+  const model = overrides.model != null ? String(overrides.model).trim().slice(0, 64) : null;
   return {
     userAgent: String(nav.userAgent || "").slice(0, 240),
     platform: String(nav.platform || ""),
     language: String(nav.language || ""),
     deviceMemory: nav.deviceMemory ?? null,
     hardwareConcurrency: nav.hardwareConcurrency ?? null,
+    model: model || null,
+    modelSource: overrides.modelSource || (model ? "user" : null),
+    modelFamily: overrides.modelFamily || null,
+  };
+}
+
+function peakOf(series, key) {
+  let max = 0;
+  for (const p of series || []) {
+    const v = Number(p?.[key]);
+    if (Number.isFinite(v) && v > max) max = v;
+  }
+  return max;
+}
+
+/** Summary metrics derived from raw streams (always exported with a session). */
+export function buildMeasurementOutputs(session = {}) {
+  const gps = session.gps || [];
+  const motion = session.motion || [];
+  const fused = session.fused || [];
+  const accuracies = gps.map((p) => p.accuracy).filter((n) => Number.isFinite(n));
+  const fusedPeak = Math.max(peakOf(fused, "fusedSpeedKmh"), peakOf(fused, "speedKmh"), peakOf(gps, "fusedSpeedKmh"));
+  return {
+    durationMs: Number(session.durationMs) || 0,
+    score: session.score ?? null,
+    scoreStatus: session.scoreStatus || null,
+    scoreNoteHe: session.scoreNoteHe || "",
+    sampleCounts: {
+      gps: gps.length,
+      motion: motion.length,
+      fused: fused.length,
+    },
+    maxSpeedKmh: Math.round(peakOf(gps, "speedKmh") * 10) / 10,
+    maxFusedSpeedKmh: Math.round(fusedPeak * 10) / 10,
+    meanGpsAccuracyM:
+      accuracies.length > 0
+        ? Math.round((accuracies.reduce((a, b) => a + b, 0) / accuracies.length) * 10) / 10
+        : null,
   };
 }
 
@@ -56,13 +154,23 @@ function isCompletedTechniqueSession({ motion = [], durationMs = 0 } = {}) {
 export function buildTechniqueExport(session) {
   const exercise = session.exercise || {};
   const layout = exercise.coneLayout || {};
+  const device = {
+    ...deviceInfo(),
+    ...(session.device || {}),
+  };
+  if (!device.model && session.deviceModel) {
+    device.model = String(session.deviceModel).trim().slice(0, 64);
+    device.modelSource = device.modelSource || "user";
+  }
+  const outputs = buildMeasurementOutputs(session);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "technique_session",
     exportedAt: new Date().toISOString(),
     participantName: session.participantName || "",
     exerciseId: exercise.id || session.exerciseId,
     exerciseName: exercise.name || session.exerciseName || "",
+    exerciseDescription: exercise.description || session.exerciseDescription || "",
     label: session.label || "unlabeled",
     phonePlacement: session.phonePlacement || "pocket",
     coneLayout: {
@@ -75,9 +183,19 @@ export function buildTechniqueExport(session) {
     score: session.score ?? null,
     scoreStatus: session.scoreStatus || "pending_model",
     scoreNoteHe: session.scoreNoteHe || "",
-    device: session.device || deviceInfo(),
+    device,
+    outputs,
+    // Full measurement streams for offline analysis / model training
+    measurements: {
+      gps: session.gps || [],
+      motion: session.motion || [],
+      fused: session.fused || [],
+    },
+    // Top-level aliases kept for backward-compatible consumers
     gps: session.gps || [],
     motion: session.motion || [],
+    fused: session.fused || [],
+    fusionDebug: session.fusionDebug || null,
     meta: session.meta || {},
   };
 }
@@ -87,16 +205,22 @@ export function techniqueWhatsAppSummary(exp) {
     exp.score == null || Number.isNaN(Number(exp.score))
       ? "ממתין למודל"
       : `${exp.score}/100 (זמני)`;
+  const counts = exp.outputs?.sampleCounts || {
+    gps: exp.gps?.length || 0,
+    motion: exp.motion?.length || 0,
+    fused: exp.fused?.length || 0,
+  };
   return [
     `Sprint Max — מדידת טכניקה`,
     `משתתף: ${exp.participantName || "—"}`,
+    `דגם מכשיר: ${exp.device?.model || "—"}`,
     `תרגיל: ${exp.exerciseName || exp.exerciseId || "—"}`,
     `זמן: ${formatDurationMs(exp.durationMs)}`,
     `ציון דיוק: ${score}`,
     `קונוסים: ${exp.coneLayout?.count ?? "—"} × ${exp.coneLayout?.spacingMeters ?? "—"} מ׳`,
-    `דגימות GPS: ${exp.gps?.length || 0} · תנועה: ${exp.motion?.length || 0}`,
+    `דגימות GPS: ${counts.gps || 0} · תנועה: ${counts.motion || 0} · fused: ${counts.fused || 0}`,
     ``,
-    `מצורף קובץ JSON עם נתוני המכשיר לניתוח.`,
+    `מצורף קובץ JSON עם כל המדידות ונתוני המכשיר לניתוח.`,
   ].join("\n");
 }
 
