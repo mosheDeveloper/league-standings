@@ -825,7 +825,7 @@ function renderSpeedImproveHistory() {
       const badge = isRecord && valid && !excluded ? `<span class="improve-event-badge">שיא</span>` : "";
       return `<li>
         <span>${new Date(run.at).toLocaleString("he-IL")}<br>
-        <small class="improve-event-meta">${escAttr(run.tableTitle || "ריצה")} · ${status}</small>${badge}</span>
+        <small class="improve-event-meta">${status}</small>${badge}</span>
         <b class="${valid ? "" : "invalid"}">${Number(run.maxKmh).toFixed(1)} קמ״ש</b>
       </li>`;
     })
