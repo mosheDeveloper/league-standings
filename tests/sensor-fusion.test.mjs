@@ -84,9 +84,28 @@ test("rejected GPS spike does not inflate fused speed", () => {
   // 55 km/h in 150 ms is a teleport but under the hard cap (72)
   const res = fusion.pushGps({ t: 150, speedKmh: 55, accuracy: 5 });
   assert.equal(res.accepted, false);
-  assert.equal(res.reason, "speed_teleport");
+  assert.ok(res.reason === "speed_teleport" || res.reason === "vs_fused");
   assert.ok(Math.abs(fusion.currentSpeedKmh() - before) < 0.5);
   assert.ok(fusion.getDebugSnapshot().gpsRejectedCount >= 1);
+});
+
+test("GPS jump vs fused estimate is rejected even at 1 Hz spacing", () => {
+  const fusion = new SensorFusion();
+  fusion.pushGps({ t: 0, speedKmh: 20, accuracy: 5 });
+  for (let i = 1; i <= 40; i++) {
+    fusion.pushAccel({
+      t: i * 20,
+      ax: 2,
+      ay: 0,
+      az: 9.81,
+      includesGravity: true,
+    });
+  }
+  const before = fusion.currentSpeedKmh();
+  const res = fusion.pushGps({ t: 1000, speedKmh: 58, accuracy: 5 });
+  assert.equal(res.accepted, false);
+  assert.equal(res.reason, "vs_fused");
+  assert.ok(Math.abs(fusion.currentSpeedKmh() - before) < 0.5);
 });
 
 test("debug snapshot exposes raw vs fused fields", () => {

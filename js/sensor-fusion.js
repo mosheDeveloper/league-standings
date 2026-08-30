@@ -163,6 +163,14 @@ export function validateGpsSample(prev, next, options = {}) {
   if (next.accuracy != null && next.accuracy > maxAccuracy) {
     return { accept: false, reason: "poor_accuracy" };
   }
+  // Disagree violently with dead-reckoned / fused speed (catches teleports
+  // even when the previous GPS fix was ~1 s ago and the jump rate looks "ok").
+  if (Number.isFinite(options.refSpeedKmh)) {
+    const dV = next.speedKmh - options.refSpeedKmh;
+    if (dV > 18 && next.speedKmh > options.refSpeedKmh * 1.6 + 5) {
+      return { accept: false, reason: "vs_fused" };
+    }
+  }
   if (prev && Number.isFinite(prev.speedKmh)) {
     const dt = (next.t - prev.t) / 1000;
     if (dt > 0.02) {
@@ -389,7 +397,14 @@ export class SensorFusion {
       this._peakRawGpsMs = Math.max(this._peakRawGpsMs, rawKmh * KMH_TO_MS);
     }
 
-    const check = validateGpsSample(this._lastGps, sample, this.opts);
+    const check = validateGpsSample(this._lastGps, sample, {
+      ...this.opts,
+      // Only compare against fused once we have a warmed estimate
+      refSpeedKmh:
+        this._gpsAcceptedCount > 0 || this._imuCount > 8
+          ? this._lastFusedKmh || this.kalman.v * MS_TO_KMH
+          : undefined,
+    });
     this._lastGpsAccepted = check.accept;
     this._lastRejectReason = check.reason;
 
