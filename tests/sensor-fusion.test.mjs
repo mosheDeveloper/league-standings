@@ -108,6 +108,71 @@ test("GPS jump vs fused estimate is rejected even at 1 Hz spacing", () => {
   assert.ok(Math.abs(fusion.currentSpeedKmh() - before) < 0.5);
 });
 
+test("approved speed updates only on accepted GPS while moving", () => {
+  const fusion = new SensorFusion();
+  fusion.pushGps({ t: 0, speedKmh: 15, accuracy: 5 });
+  assert.ok(Math.abs(fusion.approvedSpeedKmh() - 15) < 0.05);
+  assert.ok(Math.abs(fusion.peakApprovedKmh() - 15) < 0.05);
+
+  for (let i = 1; i <= 40; i++) {
+    fusion.pushAccel({
+      t: i * 20,
+      ax: 4,
+      ay: 0,
+      az: 9.81,
+      includesGravity: true,
+    });
+  }
+  // IMU-only drift must not change the approved live value
+  assert.ok(Math.abs(fusion.approvedSpeedKmh() - 15) < 0.05);
+  assert.ok(fusion.currentSpeedKmh() > 15);
+
+  fusion.pushGps({ t: 1000, speedKmh: 55, accuracy: 5 });
+  assert.ok(Math.abs(fusion.approvedSpeedKmh() - 15) < 0.05);
+  assert.ok(Math.abs(fusion.peakApprovedKmh() - 15) < 0.05);
+
+  fusion.pushGps({ t: 2000, speedKmh: 24, accuracy: 5 });
+  assert.ok(fusion.approvedSpeedKmh() > 15);
+  assert.ok(fusion.peakApprovedKmh() >= fusion.approvedSpeedKmh());
+  assert.ok(fusion.peakApprovedKmh() <= 24.5);
+});
+
+test("Tracker live UI uses approved speed, not IMU drift", () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u));
+  tracker.startDemo();
+  const t0 = Date.now();
+  tracker.ingest({ t: t0, speedKmh: 18, accuracy: 5, lat: 32.08, lng: 34.78 });
+  for (let i = 1; i <= 40; i++) {
+    tracker.ingest({
+      t: t0 + i * 15,
+      ax: 4.5,
+      ay: 0.2,
+      az: 9.81,
+      accMag: Math.hypot(4.5, 0.2, 9.81),
+      includesGravity: true,
+    });
+  }
+  const last = updates[updates.length - 1];
+  assert.ok(last.rawSpeedKmh > last.speedKmh);
+  assert.equal(last.speedKmh, 18);
+  assert.equal(last.maxKmh, 18);
+  assert.equal(last.moving, true);
+});
+
+test("approved speed is zero when phone is still", () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u));
+  tracker.startDemo();
+  const t0 = Date.now() - 5000;
+  tracker.ingest({ t: t0, speedKmh: 12, accuracy: 5 });
+  tracker.ingest({ t: Date.now(), ax: 0, ay: 0, az: 9.81, accMag: 9.81, includesGravity: true });
+  const last = updates[updates.length - 1];
+  assert.equal(last.moving, false);
+  assert.equal(last.speedKmh, 0);
+  assert.equal(last.maxKmh, 12);
+});
+
 test("debug snapshot exposes raw vs fused fields", () => {
   const fusion = new SensorFusion();
   fusion.pushGps({ t: 0, speedKmh: 18, accuracy: 8 });
