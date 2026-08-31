@@ -126,6 +126,64 @@ test("gpsAccuracyToR grows with worse accuracy", () => {
   assert.ok(gpsAccuracyToR(25) > gpsAccuracyToR(5));
 });
 
+test("live display speed ignores IMU-only spikes (confirmed GPS only)", () => {
+  const fusion = new SensorFusion();
+  fusion.pushGps({ t: 1000, speedKmh: 0, accuracy: 5, lat: 32.08, lng: 34.78 });
+
+  for (let i = 1; i <= 60; i++) {
+    fusion.pushAccel({
+      t: 1000 + i * 15,
+      ax: 6,
+      ay: 0,
+      az: 9.81,
+      includesGravity: true,
+    });
+  }
+
+  assert.ok(fusion.currentSpeedKmh() > 5, "fused speed should rise from IMU");
+  assert.equal(fusion.confirmedSpeedKmh(2000), 0, "confirmed speed stays at last GPS");
+  assert.equal(fusion.peakConfirmedGpsKmh(), 0);
+});
+
+test("confirmed speed updates only on accepted GPS fixes", () => {
+  const fusion = new SensorFusion();
+  fusion.pushGps({ t: 0, speedKmh: 12, accuracy: 5 });
+  assert.equal(fusion.confirmedSpeedKmh(500), 12);
+
+  fusion.pushGps({ t: 1000, speedKmh: 18, accuracy: 5 });
+  assert.equal(fusion.confirmedSpeedKmh(1500), 18);
+  assert.equal(fusion.peakConfirmedGpsKmh(), 18);
+
+  const spike = fusion.pushGps({ t: 1150, speedKmh: 55, accuracy: 5 });
+  assert.equal(spike.accepted, false);
+  assert.equal(fusion.confirmedSpeedKmh(1200), 18, "rejected spike does not change display");
+});
+
+test("Tracker live display uses confirmed GPS, not fused IMU", () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u));
+  tracker.startDemo();
+
+  const t0 = Date.now();
+  tracker.ingest({ t: t0, speedKmh: 0, accuracy: 5, lat: 32.08, lng: 34.78 });
+  for (let i = 1; i <= 50; i++) {
+    tracker.ingest({
+      t: t0 + i * 15,
+      ax: 5,
+      ay: 0,
+      az: 9.81,
+      accMag: Math.hypot(5, 9.81),
+      includesGravity: true,
+    });
+  }
+
+  const last = updates[updates.length - 1];
+  assert.ok(tracker.currentSpeedKmh() > 5, "internal fused speed rises");
+  assert.equal(last.speedKmh, 0, "live display stays at confirmed GPS");
+  assert.equal(last.maxKmh, 0, "live max uses confirmed GPS peak only");
+  assert.ok(last.fusedSpeedKmh > 5, "fused speed still available for analysis");
+});
+
 test("Tracker live max uses fusion and stop() cleans listeners + returns fused series", async () => {
   const updates = [];
   const tracker = new Tracker((u) => updates.push(u), { debug: true });

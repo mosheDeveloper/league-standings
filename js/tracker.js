@@ -38,6 +38,15 @@ export class Tracker {
     return last?.fusedSpeedKmh ?? last?.speedKmh ?? 0;
   }
 
+  /** Live meter: only accepted GPS measurements (ignores IMU dead-reckoning spikes). */
+  displaySpeedKmh(nowT = Date.now()) {
+    return this.fusion.confirmedSpeedKmh(nowT);
+  }
+
+  displayMaxKmh() {
+    return this.fusion.peakConfirmedGpsKmh();
+  }
+
   liveMaxKmh() {
     return this.fusion.peakFusedKmh();
   }
@@ -136,8 +145,10 @@ export class Tracker {
     const debug = this.debug ? this.getFusionDebug() : undefined;
     this.onUpdate({
       durationMs: Date.now() - this.startedAt,
-      speedKmh: this.currentSpeedKmh(),
-      maxKmh: this.liveMaxKmh(),
+      speedKmh: this.displaySpeedKmh(),
+      maxKmh: this.displayMaxKmh(),
+      fusedSpeedKmh: this.currentSpeedKmh(),
+      fusedMaxKmh: this.liveMaxKmh(),
       rawGpsSpeedKmh: this.fusion._lastRawGpsKmh,
       rawMaxKmh: this.rawGpsMaxKmh(),
       samples: this.gps.length,
