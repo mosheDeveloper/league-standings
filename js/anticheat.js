@@ -1,12 +1,14 @@
 /**
- * Anti-cheat for phone-carried running speed.
- * GPS spike filter, cadence/tilt bounce, human cap, learned profile.
- * Peak speed prefers GPS+IMU sensor fusion when inertial axes are present.
+ * Anti-cheat for phone-carried running speed (pocket placement).
+ * Peak speed uses GPS track windows (~3.5 s) to ignore phone swing / IMU spikes.
+ * IMU still powers vehicle vs running detection (cadence, bounce, still phone).
  */
 
-import { fuseSession } from "./sensor-fusion.js";
+import { fuseSession, haversineMeters } from "./sensor-fusion.js";
 
 export const HUMAN_SPEED_CAP_KMH = 45;
+/** Sliding GPS window for pocket peak speed (ms). */
+export const POCKET_PEAK_WINDOW_MS = 3500;
 const MS_PER_HOUR = 3.6;
 
 export function kmh(mpsVal) {
@@ -95,6 +97,50 @@ export function filterGpsPoints(points, options = {}) {
   return kept;
 }
 
+/**
+ * Peak speed from GPS position deltas over ~windowMs (pocket-friendly).
+ * Averages out pocket bounce / brief IMU spikes; needs lat/lng on GPS points.
+ */
+export function windowedGpsPeakKmh(gps = [], options = {}) {
+  const windowMs = options.windowMs ?? POCKET_PEAK_WINDOW_MS;
+  const minSpanMs = options.minSpanMs ?? Math.round(windowMs * 0.85);
+  const maxSpanMs = options.maxSpanMs ?? Math.round(windowMs * 1.25);
+  const hardCap = options.hardCap ?? 72;
+
+  const points = filterGpsPoints(gps).filter(
+    (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng ?? p.lon)
+  );
+  if (points.length < 2) {
+    return { peakKmh: 0, windowMs, windows: 0 };
+  }
+
+  const sorted = [...points].sort((a, b) => a.t - b.t);
+  let peak = 0;
+  let windows = 0;
+
+  for (let left = 0; left < sorted.length; left++) {
+    for (let right = left + 1; right < sorted.length; right++) {
+      const dtMs = sorted[right].t - sorted[left].t;
+      if (dtMs < minSpanMs) continue;
+      if (dtMs > maxSpanMs) break;
+
+      const dtSec = dtMs / 1000;
+      const lngL = sorted[left].lng ?? sorted[left].lon;
+      const lngR = sorted[right].lng ?? sorted[right].lon;
+      const dist = haversineMeters(sorted[left].lat, lngL, sorted[right].lat, lngR);
+      const kmh = Math.min(hardCap, (dist / dtSec) * 3.6);
+      if (kmh > peak) peak = kmh;
+      windows += 1;
+    }
+  }
+
+  return {
+    peakKmh: Math.round(peak * 10) / 10,
+    windowMs,
+    windows,
+  };
+}
+
 export function filterGpsSpikes(samples) {
   const asKmh = (samples || []).map((s) => ({
     ...s,
@@ -172,44 +218,60 @@ function motionHasAxes(motion) {
 }
 
 /**
- * Resolve peak speed: prefer live fused series from Tracker, else offline
- * GPS+IMU fusion when accel axes exist, else filtered GPS only.
+ * Resolve peak speed for pocket placement: GPS track window (primary).
+ * Instant GPS / IMU fusion peaks are kept for debug only — not for scoring.
  */
+export function pocketLikeMotion(stats) {
+  if (!stats) return false;
+  return stats.accStd >= 1.2 && stats.tiltStd >= 0.35 && stats.accStd <= 9;
+}
+
+function runnerMotion(stats) {
+  return stats.runningLikeMotion || pocketLikeMotion(stats);
+}
+
 export function resolvePeakSpeedKmh(session = {}) {
   const gps = session.gps || [];
   const motion = session.motion || [];
   const kept = filterGpsPoints(gps);
-  const gpsMax = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
+  const gpsInstantMax = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
 
+  let fusedInstantMax = 0;
+  let fusionDebug = session.fusionDebug || null;
   if (session.fused?.length) {
-    const fusedMax = Math.max(...session.fused.map((p) => p.fusedSpeedKmh || 0));
-    return {
-      maxSpeedKmh: Math.max(gpsMax, fusedMax),
-      gpsMaxKmh: gpsMax,
-      source: "live_fusion",
-      fusionDebug: session.fusionDebug || null,
-      keptGps: kept.length,
-    };
+    fusedInstantMax = Math.max(...session.fused.map((p) => p.fusedSpeedKmh || 0));
+  } else if (motionHasAxes(motion) && gps.length) {
+    const fused = fuseSession({ gps, motion });
+    fusedInstantMax = fused.fusedMaxKmh;
+    fusionDebug = fusionDebug || fused.debug;
   }
 
-  if (motionHasAxes(motion) && gps.length) {
-    const fused = fuseSession({ gps, motion });
-    // Trust fusion peak but never below cleaned GPS peak (fusion may warm slowly)
-    const maxSpeedKmh = Math.max(gpsMax, fused.fusedMaxKmh);
+  const placement = session.phonePlacement || "pocket";
+  const windowed = windowedGpsPeakKmh(gps);
+
+  if (placement === "pocket" && windowed.windows > 0 && windowed.peakKmh > 0) {
     return {
-      maxSpeedKmh,
-      gpsMaxKmh: gpsMax,
-      source: "offline_fusion",
-      fusionDebug: fused.debug,
+      maxSpeedKmh: windowed.peakKmh,
+      gpsMaxKmh: gpsInstantMax,
+      windowPeakKmh: windowed.peakKmh,
+      fusedInstantMaxKmh: Math.round(fusedInstantMax * 10) / 10,
+      source: "pocket_gps_window",
+      windowMs: windowed.windowMs,
+      windowCount: windowed.windows,
+      fusionDebug,
       keptGps: kept.length,
     };
   }
 
   return {
-    maxSpeedKmh: gpsMax,
-    gpsMaxKmh: gpsMax,
-    source: "gps_filtered",
-    fusionDebug: null,
+    maxSpeedKmh: gpsInstantMax,
+    gpsMaxKmh: gpsInstantMax,
+    windowPeakKmh: windowed.peakKmh,
+    fusedInstantMaxKmh: Math.round(fusedInstantMax * 10) / 10,
+    source: windowed.peakKmh > 0 ? "pocket_gps_window" : "gps_filtered",
+    windowMs: windowed.windowMs,
+    windowCount: windowed.windows,
+    fusionDebug,
     keptGps: kept.length,
   };
 }
@@ -226,10 +288,13 @@ export function analyzeRun(session = {}) {
   const peak = resolvePeakSpeedKmh(session);
   const maxSpeedKmh = peak.maxSpeedKmh;
   const stats = motionStats(motion);
+  const looksLikeRunner = runnerMotion(stats);
 
   const flags = [];
   const stillPhone = stats.accStd < 0.85 && stats.tiltStd < 1.8 && stats.cadenceHz < 1.25;
   if (stillPhone) flags.push("still_phone");
+  if (pocketLikeMotion(stats)) flags.push("pocket_motion");
+  if (stats.runningLikeMotion) flags.push("running_motion");
 
   const speedTerm = clamp((maxSpeedKmh - 22) / 38, 0, 1);
   const cadenceTerm = stats.cadenceHz >= 1.8 && stats.cadenceHz <= 4.8 ? 0 : 1;
@@ -240,7 +305,6 @@ export function analyzeRun(session = {}) {
   if (maxSpeedKmh > HUMAN_SPEED_CAP_KMH) flags.push("over_human_cap");
   if (maxSpeedKmh > 55) flags.push("hard_vehicle_speed");
   if (vehicleScore >= 0.55) flags.push("vehicle_motion");
-  if (stats.runningLikeMotion) flags.push("running_motion");
 
   const profile = session.profile;
   if (profile && (profile.runs || profile.count) >= 3) {
@@ -260,14 +324,14 @@ export function analyzeRun(session = {}) {
     valid = false;
     label = "still_phone";
     messageHe = "הטלפון כמעט לא זז במהלך המדידה — כך מזהים נסיעה ברכב.";
-  } else if (vehicleScore >= 0.55 && maxSpeedKmh >= 25 && !stats.runningLikeMotion) {
+  } else if (vehicleScore >= 0.55 && maxSpeedKmh >= 25 && !looksLikeRunner) {
     valid = false;
     label = "smooth_high_speed";
     messageHe = "תנועת הטלפון חלקה כמו ברכב, והמהירות גבוהה מדי לריצה.";
-  } else if (flags.includes("over_human_cap") && !stats.runningLikeMotion) {
+  } else if (flags.includes("over_human_cap") && !looksLikeRunner) {
     valid = false;
     label = "cap_no_bounce";
-    messageHe = "מהירות שיא מעל 45 קמ״ש בלי תנודות ריצה.";
+    messageHe = "מהירות שיא מעל 45 קמ״ש בלי תנודות ריצה בכיס.";
   } else if (flags.includes("profile_violation")) {
     valid = false;
     label = "profile";
@@ -285,11 +349,15 @@ export function analyzeRun(session = {}) {
     maxKmh: rounded,
     rawMaxKmh: Math.round(rawMaxKmh * 10) / 10,
     gpsMaxKmh: Math.round((peak.gpsMaxKmh || 0) * 10) / 10,
+    windowPeakKmh: Math.round((peak.windowPeakKmh || 0) * 10) / 10,
+    fusedInstantMaxKmh: peak.fusedInstantMaxKmh ?? null,
     speedSource: peak.source,
+    peakWindowMs: peak.windowMs ?? POCKET_PEAK_WINDOW_MS,
     fusionDebug: peak.fusionDebug,
     vehicleScore,
     runningLikeMotion: stats.runningLikeMotion,
-    looksLikeRunning: stats.runningLikeMotion,
+    pocketLikeMotion: pocketLikeMotion(stats),
+    looksLikeRunning: looksLikeRunner,
     cadenceHz: stats.cadenceHz,
     bounceScore: stats.bounceScore,
     accStd: stats.accStd,
@@ -297,7 +365,7 @@ export function analyzeRun(session = {}) {
     keptGps: kept.length,
     droppedGps: gps.length - kept.length,
     motion: {
-      looksLikeRunning: stats.runningLikeMotion,
+      looksLikeRunning: looksLikeRunner,
       cadenceHz: stats.cadenceHz,
       bounceScore: stats.bounceScore,
     },

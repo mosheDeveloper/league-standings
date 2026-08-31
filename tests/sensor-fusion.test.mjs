@@ -132,13 +132,17 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
   tracker.startDemo();
 
   const t0 = Date.now();
-  tracker.ingest({
-    t: t0,
-    speedKmh: 18,
-    accuracy: 5,
-    lat: 32.08,
-    lng: 34.78,
-  });
+  let lat = 32.08;
+  for (let g = 0; g < 8; g++) {
+    tracker.ingest({
+      t: t0 + g * 500,
+      speedKmh: 18,
+      accuracy: 5,
+      lat,
+      lng: 34.78,
+    });
+    lat += 2.5 / 111320;
+  }
   for (let i = 1; i <= 40; i++) {
     tracker.ingest({
       t: t0 + i * 15,
@@ -160,35 +164,40 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
   assert.ok(session.fused.length > 0);
   assert.ok(session.fusionDebug.peakFusedKmh >= session.fusionDebug.peakRawGpsKmh);
 
-  const peak = resolvePeakSpeedKmh(session);
-  assert.equal(peak.source, "live_fusion");
-  assert.ok(peak.maxSpeedKmh > 18);
+  const peak = resolvePeakSpeedKmh({ ...session, phonePlacement: "pocket" });
+  assert.equal(peak.source, "pocket_gps_window");
+  assert.ok(peak.maxSpeedKmh >= 18 && peak.maxSpeedKmh <= 28);
+  assert.ok(peak.fusedInstantMaxKmh > peak.maxSpeedKmh);
 });
 
-test("analyzeRun prefers fused peak from session.fused", () => {
-  // Interleave GPS and IMU by timestamp so fusion sees a mid-interval surge
+test("analyzeRun uses pocket GPS window and ignores fused spike for scoring", () => {
   const tracker = new Tracker();
   tracker.startDemo();
-  tracker.ingest({ t: 0, speedKmh: 22, accuracy: 6, lat: 32, lng: 34 });
+  const t0 = 1_000_000;
+  let lat = 32.08;
+  for (let g = 0; g < 8; g++) {
+    const t = t0 + g * 500;
+    lat += 2.9 / 111320;
+    tracker.ingest({ t, speedKmh: 22, accuracy: 6, lat, lng: 34.78 });
+  }
   for (let i = 1; i <= 50; i++) {
     tracker.ingest({
-      t: i * 15,
-      ax: 3,
+      t: t0 + 500 + i * 15,
+      ax: 6,
       ay: 0,
       az: 9.81,
-      accMag: Math.hypot(3, 9.81),
+      accMag: Math.hypot(6, 9.81),
       tiltBeta: 12,
       tiltGamma: 3,
       includesGravity: true,
     });
   }
-  tracker.ingest({ t: 1000, speedKmh: 23, accuracy: 6, lat: 32.0001, lng: 34 });
-  const session = tracker.stop();
+  const session = { ...tracker.stop(), phonePlacement: "pocket" };
 
   const analysis = analyzeRun(session);
-  assert.equal(analysis.speedSource, "live_fusion");
-  assert.ok(analysis.maxSpeedKmh >= analysis.gpsMaxKmh);
-  assert.ok(analysis.maxSpeedKmh > 22);
+  assert.equal(analysis.speedSource, "pocket_gps_window");
+  assert.ok(analysis.fusedInstantMaxKmh > analysis.maxSpeedKmh);
+  assert.ok(analysis.maxSpeedKmh >= 20 && analysis.maxSpeedKmh <= 28);
 });
 
 test("fuseSession offline recovers mid-interval peak", () => {

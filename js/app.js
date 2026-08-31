@@ -640,7 +640,7 @@ function stopRun() {
   const session = state.tracker.stop();
   const verified = Store.verifiedRuns();
   const profile = buildProfile(verified.map((r) => r.analysis));
-  const analysis = analyzeRun({ ...session, profile });
+  const analysis = analyzeRun({ ...session, profile, phonePlacement: "pocket" });
   const table = activeComparisonTable();
   const comparison = rankAgainstTable(analysis.maxSpeedKmh, table);
   const payload = buildSharePayload(analysis.maxSpeedKmh, comparison, tableTitle(table));

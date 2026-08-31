@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeRun, filterGpsPoints, buildProfile, evaluateAntiCheat } from "../js/anticheat.js";
+import {
+  analyzeRun,
+  filterGpsPoints,
+  buildProfile,
+  evaluateAntiCheat,
+  windowedGpsPeakKmh,
+  resolvePeakSpeedKmh,
+  pocketLikeMotion,
+  POCKET_PEAK_WINDOW_MS,
+} from "../js/anticheat.js";
 import { rankAgainstTable, shareMessage } from "../js/compare.js";
 import { sampleRunning, sampleCar } from "../js/demo.js";
 import { generateTrack, gpsSpike } from "../js/simulator.js";
@@ -10,13 +19,17 @@ function sessionFromSampler(sampler, seconds = 6, hz = 25) {
   const motion = [];
   const n = seconds * hz;
   const t0 = 1_000_000;
+  let lat = 32.0853;
+  let lng = 34.7818;
   for (let i = 0; i < n; i++) {
     const t = t0 + (i * 1000) / hz;
     const s = sampler(i / hz);
-    gps.push({ t, speedKmh: s.speedKmh, accuracy: s.accuracy });
+    const dist = (s.speedKmh / 3.6) / hz;
+    lat += dist / 111320;
+    gps.push({ t, speedKmh: s.speedKmh, accuracy: s.accuracy, lat, lng });
     motion.push({ t, accMag: s.accMag, tiltBeta: s.tiltBeta, tiltGamma: s.tiltGamma });
   }
-  return { gps, motion, durationMs: seconds * 1000 };
+  return { gps, motion, durationMs: seconds * 1000, phonePlacement: "pocket" };
 }
 
 test("running simulation is accepted", () => {
@@ -92,14 +105,70 @@ test("still phone at speed is treated as a car", () => {
   const t0 = 1_000_000;
   const gps = [];
   const motion = [];
+  let lat = 32.0853;
   for (let i = 0; i < 80; i++) {
     const t = t0 + i * 50;
-    gps.push({ t, speedKmh: 28, accuracy: 8 });
+    lat += 0.38 / 111320;
+    gps.push({ t, speedKmh: 28, accuracy: 8, lat, lng: 34.7818 });
     motion.push({ t, accMag: 9.81, tiltBeta: 2, tiltGamma: 0.4 });
   }
-  const v = analyzeRun({ gps, motion, durationMs: 4000 });
+  const v = analyzeRun({ gps, motion, durationMs: 4000, phonePlacement: "pocket" });
   assert.equal(v.valid, false);
   assert.ok(v.flags.includes("still_phone") || v.label === "still_phone");
+});
+
+test("windowedGpsPeakKmh ignores brief GPS speed spikes vs track speed", () => {
+  const t0 = 0;
+  const gps = [];
+  let lat = 32.08;
+  for (let i = 0; i < 8; i++) {
+    const t = t0 + i * 500;
+    lat += 2.8 / 111320;
+    gps.push({ t, speedKmh: 20, accuracy: 6, lat, lng: 34.78 });
+  }
+  gps[3] = { ...gps[3], speedKmh: 55 };
+  const windowed = windowedGpsPeakKmh(gps);
+  assert.ok(windowed.windows > 0);
+  assert.ok(windowed.peakKmh < 30, `window peak too high: ${windowed.peakKmh}`);
+  assert.ok(windowed.peakKmh > 15);
+});
+
+test("pocket peak uses GPS window not IMU fusion spike", async () => {
+  const { Tracker } = await import("../js/tracker.js");
+  const tracker = new Tracker();
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  let lat = 32.08;
+  for (let g = 0; g < 8; g++) {
+    const t = t0 + g * 500;
+    lat += 2.8 / 111320;
+    tracker.ingest({ t, speedKmh: 20, accuracy: 6, lat, lng: 34.78 });
+  }
+  for (let i = 1; i <= 60; i++) {
+    tracker.ingest({
+      t: t0 + 500 + i * 15,
+      ax: 8,
+      ay: 0,
+      az: 9.81,
+      accMag: Math.hypot(8, 9.81),
+      includesGravity: true,
+    });
+  }
+  const session = { ...tracker.stop(), phonePlacement: "pocket" };
+  assert.ok(session.fusionDebug.peakFusedKmh > 25);
+  const peak = resolvePeakSpeedKmh(session);
+  assert.equal(peak.source, "pocket_gps_window");
+  assert.ok(peak.maxSpeedKmh < peak.fusedInstantMaxKmh - 5);
+  assert.ok(peak.maxSpeedKmh >= 18 && peak.maxSpeedKmh <= 26);
+});
+
+test("pocketLikeMotion accepts bounce without perfect cadence", () => {
+  assert.equal(pocketLikeMotion({ accStd: 2.1, tiltStd: 0.8, cadenceHz: 1.1 }), true);
+  assert.equal(pocketLikeMotion({ accStd: 0.5, tiltStd: 0.2, cadenceHz: 0.5 }), false);
+});
+
+test("POCKET_PEAK_WINDOW_MS is about 3.5 seconds", () => {
+  assert.equal(POCKET_PEAK_WINDOW_MS, 3500);
 });
 
 test("share caption invites others to use the app", async () => {
