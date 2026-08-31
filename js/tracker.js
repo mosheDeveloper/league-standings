@@ -27,7 +27,22 @@ export class Tracker {
     this.gpsError = null;
     this.fusion = new SensorFusion();
     this._lastImuProcessT = 0;
+    this._lastMovingAt = 0;
     this._listenersAttached = false;
+  }
+
+  /** True when recent IMU activity suggests the phone is being carried while moving. */
+  isMoving() {
+    return this._lastMovingAt > 0 && Date.now() - this._lastMovingAt < 1500;
+  }
+
+  approvedSpeedKmh() {
+    if (!this.isMoving()) return 0;
+    return this.fusion.approvedSpeedKmh();
+  }
+
+  liveApprovedMaxKmh() {
+    return this.fusion.peakApprovedKmh();
   }
 
   currentSpeedKmh() {
@@ -36,15 +51,6 @@ export class Tracker {
     if (fused > 0 || this.gps.length === 0) return fused;
     const last = this.gps[this.gps.length - 1];
     return last?.fusedSpeedKmh ?? last?.speedKmh ?? 0;
-  }
-
-  /** Live meter: only accepted GPS measurements (ignores IMU dead-reckoning spikes). */
-  displaySpeedKmh(nowT = Date.now()) {
-    return this.fusion.confirmedSpeedKmh(nowT);
-  }
-
-  displayMaxKmh() {
-    return this.fusion.peakConfirmedGpsKmh();
   }
 
   liveMaxKmh() {
@@ -99,7 +105,7 @@ export class Tracker {
         Math.sqrt((ax || 0) ** 2 + (ay || 0) ** 2 + (az || 0) ** 2);
 
       if (hasAxes) {
-        this.fusion.pushAccel({
+        const { aForward } = this.fusion.pushAccel({
           t,
           ax: ax || 0,
           ay: ay || 0,
@@ -110,6 +116,9 @@ export class Tracker {
           gy,
           gz,
         });
+        if (Math.abs(aForward) > 0.35 || Math.abs(mag - 9.81) > 0.7) {
+          this._lastMovingAt = t;
+        }
       } else {
         // Magnitude-only demos: feed residual over g as crude forward accel
         const a = Math.max(-6, Math.min(6, mag - 9.81));
@@ -120,6 +129,7 @@ export class Tracker {
           az: 9.81,
           includesGravity: true,
         });
+        if (Math.abs(a) > 0.35) this._lastMovingAt = t;
       }
 
       this.motion.push({
@@ -145,12 +155,13 @@ export class Tracker {
     const debug = this.debug ? this.getFusionDebug() : undefined;
     this.onUpdate({
       durationMs: Date.now() - this.startedAt,
-      speedKmh: this.displaySpeedKmh(),
-      maxKmh: this.displayMaxKmh(),
-      fusedSpeedKmh: this.currentSpeedKmh(),
-      fusedMaxKmh: this.liveMaxKmh(),
+      speedKmh: this.approvedSpeedKmh(),
+      maxKmh: this.liveApprovedMaxKmh(),
+      rawSpeedKmh: this.currentSpeedKmh(),
+      rawMaxKmh: this.liveMaxKmh(),
+      moving: this.isMoving(),
       rawGpsSpeedKmh: this.fusion._lastRawGpsKmh,
-      rawMaxKmh: this.rawGpsMaxKmh(),
+      rawMaxKmhGps: this.rawGpsMaxKmh(),
       samples: this.gps.length,
       motion: this.motion.length,
       gpsAccuracy: this.gpsAccuracy,

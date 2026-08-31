@@ -250,16 +250,16 @@ export class SensorFusion {
     this._lastForwardAccel = 0;
     this._lastRawGpsKmh = 0;
     this._lastFusedKmh = 0;
+    /** Last fused speed anchored by an accepted GPS fix (live UI). */
+    this._lastApprovedKmh = 0;
+    this._peakApprovedKmh = 0;
+    this._lastApprovedGpsT = null;
     this._lastGpsAccepted = true;
     this._lastRejectReason = null;
     this._fusedSeries = []; // { t, fusedSpeedKmh, rawGpsSpeedKmh|null, aForward }
     this._gpsAcceptedCount = 0;
     this._gpsRejectedCount = 0;
     this._imuCount = 0;
-    /** Last GPS speed that passed validateGpsSample (live display only). */
-    this._lastConfirmedGpsKmh = 0;
-    this._lastConfirmedGpsT = null;
-    this._peakConfirmedGpsKmh = 0;
   }
 
   /**
@@ -441,11 +441,11 @@ export class SensorFusion {
     }
     this._peakFusedMs = Math.max(this._peakFusedMs, v);
     this._lastFusedKmh = v * MS_TO_KMH;
+    this._lastApprovedKmh = this._lastFusedKmh;
+    this._peakApprovedKmh = Math.max(this._peakApprovedKmh, this._lastApprovedKmh);
+    this._lastApprovedGpsT = sample.t;
     this._lastGps = { ...sample };
     this._gpsAcceptedCount += 1;
-    this._lastConfirmedGpsKmh = rawKmh;
-    this._lastConfirmedGpsT = sample.t;
-    this._peakConfirmedGpsKmh = Math.max(this._peakConfirmedGpsKmh, rawKmh);
 
     this._fusedSeries.push({
       t: sample.t,
@@ -466,21 +466,22 @@ export class SensorFusion {
   }
 
   /**
-   * Live-display speed: only from accepted GPS fixes (not IMU dead-reckoning).
-   * Returns 0 when no fix has been accepted recently (staleness window).
+   * Speed from the last accepted GPS fix (ignores IMU-only drift).
+   * Returns 0 when no accepted fix within the staleness window.
    */
-  confirmedSpeedKmh(nowT = Date.now(), stalenessMs = 2500) {
-    if (this._lastConfirmedGpsT == null) return 0;
-    if (nowT - this._lastConfirmedGpsT > stalenessMs) return 0;
-    return this._lastConfirmedGpsKmh;
-  }
-
-  peakConfirmedGpsKmh() {
-    return this._peakConfirmedGpsKmh;
+  approvedSpeedKmh(nowT = Date.now(), stalenessMs = 2500) {
+    if (this._lastApprovedGpsT == null) return 0;
+    if (nowT - this._lastApprovedGpsT > stalenessMs) return 0;
+    return this._lastApprovedKmh;
   }
 
   peakFusedKmh() {
     return this._peakFusedMs * MS_TO_KMH;
+  }
+
+  /** Peak speed recorded only at accepted GPS fixes. */
+  peakApprovedKmh() {
+    return this._peakApprovedKmh;
   }
 
   peakRawGpsKmh() {
@@ -498,8 +499,10 @@ export class SensorFusion {
     return {
       rawGpsSpeedKmh: round1(this._lastRawGpsKmh),
       fusedSpeedKmh: round1(this._lastFusedKmh),
+      approvedSpeedKmh: round1(this._lastApprovedKmh),
       peakRawGpsKmh: round1(this.peakRawGpsKmh()),
       peakFusedKmh: round1(this.peakFusedKmh()),
+      peakApprovedKmh: round1(this.peakApprovedKmh()),
       aForwardMs2: Math.round(this._lastForwardAccel * 100) / 100,
       kalmanV_ms: Math.round(this.kalman.v * 100) / 100,
       kalmanP: Math.round(this.kalman.P * 1000) / 1000,
@@ -509,8 +512,6 @@ export class SensorFusion {
       gpsRejectedCount: this._gpsRejectedCount,
       imuCount: this._imuCount,
       hasHeading: !!this._heading,
-      confirmedSpeedKmh: round1(this.confirmedSpeedKmh()),
-      peakConfirmedGpsKmh: round1(this.peakConfirmedGpsKmh()),
     };
   }
 }

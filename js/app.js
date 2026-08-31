@@ -582,6 +582,7 @@ function renderProfile() {
 }
 
 function onLive(update) {
+  // speedKmh / maxKmh are GPS-approved values only (no IMU drift between fixes).
   $("live-speed").textContent = (update.speedKmh || 0).toFixed(1);
   $("max-speed").textContent = (update.maxKmh || 0).toFixed(1);
   $("cadence").textContent = update.motion > 8 ? "חי" : "…";

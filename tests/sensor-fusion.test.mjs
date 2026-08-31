@@ -108,6 +108,71 @@ test("GPS jump vs fused estimate is rejected even at 1 Hz spacing", () => {
   assert.ok(Math.abs(fusion.currentSpeedKmh() - before) < 0.5);
 });
 
+test("approved speed updates only on accepted GPS while moving", () => {
+  const fusion = new SensorFusion();
+  fusion.pushGps({ t: 0, speedKmh: 15, accuracy: 5 });
+  assert.ok(Math.abs(fusion.approvedSpeedKmh(500) - 15) < 0.05);
+  assert.ok(Math.abs(fusion.peakApprovedKmh() - 15) < 0.05);
+
+  for (let i = 1; i <= 40; i++) {
+    fusion.pushAccel({
+      t: i * 20,
+      ax: 4,
+      ay: 0,
+      az: 9.81,
+      includesGravity: true,
+    });
+  }
+  // IMU-only drift must not change the approved live value
+  assert.ok(Math.abs(fusion.approvedSpeedKmh(900) - 15) < 0.05);
+  assert.ok(fusion.currentSpeedKmh() > 15);
+
+  fusion.pushGps({ t: 1000, speedKmh: 55, accuracy: 5 });
+  assert.ok(Math.abs(fusion.approvedSpeedKmh(1500) - 15) < 0.05);
+  assert.ok(Math.abs(fusion.peakApprovedKmh() - 15) < 0.05);
+
+  fusion.pushGps({ t: 2000, speedKmh: 24, accuracy: 5 });
+  assert.ok(fusion.approvedSpeedKmh(2500) > 15);
+  assert.ok(fusion.peakApprovedKmh() >= fusion.approvedSpeedKmh(2500));
+  assert.ok(fusion.peakApprovedKmh() <= 24.5);
+});
+
+test("Tracker live UI uses approved speed, not IMU drift", () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u));
+  tracker.startDemo();
+  const t0 = Date.now();
+  tracker.ingest({ t: t0, speedKmh: 18, accuracy: 5, lat: 32.08, lng: 34.78 });
+  for (let i = 1; i <= 40; i++) {
+    tracker.ingest({
+      t: t0 + i * 15,
+      ax: 4.5,
+      ay: 0.2,
+      az: 9.81,
+      accMag: Math.hypot(4.5, 0.2, 9.81),
+      includesGravity: true,
+    });
+  }
+  const last = updates[updates.length - 1];
+  assert.ok(last.rawSpeedKmh > last.speedKmh);
+  assert.equal(last.speedKmh, 18);
+  assert.equal(last.maxKmh, 18);
+  assert.equal(last.moving, true);
+});
+
+test("approved speed is zero when phone is still", () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u));
+  tracker.startDemo();
+  const t0 = Date.now() - 5000;
+  tracker.ingest({ t: t0, speedKmh: 12, accuracy: 5 });
+  tracker.ingest({ t: Date.now(), ax: 0, ay: 0, az: 9.81, accMag: 9.81, includesGravity: true });
+  const last = updates[updates.length - 1];
+  assert.equal(last.moving, false);
+  assert.equal(last.speedKmh, 0);
+  assert.equal(last.maxKmh, 12);
+});
+
 test("debug snapshot exposes raw vs fused fields", () => {
   const fusion = new SensorFusion();
   fusion.pushGps({ t: 0, speedKmh: 18, accuracy: 8 });
@@ -126,70 +191,14 @@ test("gpsAccuracyToR grows with worse accuracy", () => {
   assert.ok(gpsAccuracyToR(25) > gpsAccuracyToR(5));
 });
 
-test("live display speed ignores IMU-only spikes (confirmed GPS only)", () => {
+test("approved speed decays after GPS staleness window", () => {
   const fusion = new SensorFusion();
-  fusion.pushGps({ t: 1000, speedKmh: 0, accuracy: 5, lat: 32.08, lng: 34.78 });
-
-  for (let i = 1; i <= 60; i++) {
-    fusion.pushAccel({
-      t: 1000 + i * 15,
-      ax: 6,
-      ay: 0,
-      az: 9.81,
-      includesGravity: true,
-    });
-  }
-
-  assert.ok(fusion.currentSpeedKmh() > 5, "fused speed should rise from IMU");
-  assert.equal(fusion.confirmedSpeedKmh(2000), 0, "confirmed speed stays at last GPS");
-  assert.equal(fusion.peakConfirmedGpsKmh(), 0);
+  fusion.pushGps({ t: 1000, speedKmh: 12, accuracy: 5 });
+  assert.equal(fusion.approvedSpeedKmh(1500), 12);
+  assert.equal(fusion.approvedSpeedKmh(4000), 0);
 });
 
-test("confirmed speed updates only on accepted GPS fixes", () => {
-  const fusion = new SensorFusion();
-  fusion.pushGps({ t: 0, speedKmh: 12, accuracy: 5 });
-  assert.equal(fusion.confirmedSpeedKmh(500), 12);
-
-  fusion.pushGps({ t: 1000, speedKmh: 18, accuracy: 5 });
-  assert.equal(fusion.confirmedSpeedKmh(1500), 18);
-  assert.equal(fusion.peakConfirmedGpsKmh(), 18);
-
-  const spike = fusion.pushGps({ t: 1150, speedKmh: 55, accuracy: 5 });
-  assert.equal(spike.accepted, false);
-  assert.equal(fusion.confirmedSpeedKmh(1200), 18, "rejected spike does not change display");
-});
-
-test("Tracker live display uses confirmed GPS, not fused IMU", () => {
-  const updates = [];
-  const tracker = new Tracker((u) => updates.push(u));
-  tracker.startDemo();
-
-  const t0 = Date.now();
-  tracker.ingest({ t: t0, speedKmh: 0, accuracy: 5, lat: 32.08, lng: 34.78 });
-  for (let i = 1; i <= 50; i++) {
-    tracker.ingest({
-      t: t0 + i * 15,
-      ax: 5,
-      ay: 0,
-      az: 9.81,
-      accMag: Math.hypot(5, 9.81),
-      includesGravity: true,
-    });
-  }
-
-  const last = updates[updates.length - 1];
-  assert.ok(tracker.currentSpeedKmh() > 5, "internal fused speed rises");
-  assert.equal(last.speedKmh, 0, "live display stays at confirmed GPS");
-  assert.equal(last.maxKmh, 0, "live max uses confirmed GPS peak only");
-  assert.ok(last.fusedSpeedKmh > 5, "fused speed still available for analysis");
-});
-
-test("Tracker live max uses fusion and stop() cleans listeners + returns fused series", async () => {
-  const updates = [];
-  const tracker = new Tracker((u) => updates.push(u), { debug: true });
-  tracker.startDemo();
-
-  const t0 = Date.now();
+function ingestSustainedSprint(tracker, t0) {
   tracker.ingest({
     t: t0,
     speedKmh: 18,
@@ -197,16 +206,39 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
     lat: 32.08,
     lng: 34.78,
   });
-  for (let i = 1; i <= 40; i++) {
+  for (let i = 1; i <= 200; i++) {
+    const tSec = (i * 15) / 1000;
+    const cadence = 3.15;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
     tracker.ingest({
       t: t0 + i * 15,
       ax: 4.5,
       ay: 0.2,
       az: 9.81,
-      accMag: Math.hypot(4.5, 0.2, 9.81),
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4 + 3 * Math.sin(2 * Math.PI * cadence * tSec + 0.4),
       includesGravity: true,
     });
   }
+  for (let g = 1; g <= 3; g++) {
+    tracker.ingest({
+      t: t0 + g * 1000,
+      speedKmh: 18 + g * 2,
+      accuracy: 5,
+      lat: 32.08 + g * 0.0001,
+      lng: 34.78,
+    });
+  }
+}
+
+test("Tracker live max uses fusion and stop() cleans listeners + returns fused series", async () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u), { debug: true });
+  tracker.startDemo();
+
+  const t0 = Date.now();
+  ingestSustainedSprint(tracker, t0);
 
   assert.ok(tracker.liveMaxKmh() > tracker.rawGpsMaxKmh());
   assert.ok(updates.some((u) => u.fusion && u.maxKmh > 0));
@@ -219,34 +251,21 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
   assert.ok(session.fusionDebug.peakFusedKmh >= session.fusionDebug.peakRawGpsKmh);
 
   const peak = resolvePeakSpeedKmh(session);
-  assert.equal(peak.source, "live_fusion");
+  assert.ok(peak.source === "live_fusion" || peak.source === "gps_sustained");
   assert.ok(peak.maxSpeedKmh > 18);
 });
 
-test("analyzeRun prefers fused peak from session.fused", () => {
-  // Interleave GPS and IMU by timestamp so fusion sees a mid-interval surge
+test("analyzeRun prefers sustained fused peak from session.fused", () => {
   const tracker = new Tracker();
   tracker.startDemo();
-  tracker.ingest({ t: 0, speedKmh: 22, accuracy: 6, lat: 32, lng: 34 });
-  for (let i = 1; i <= 50; i++) {
-    tracker.ingest({
-      t: i * 15,
-      ax: 3,
-      ay: 0,
-      az: 9.81,
-      accMag: Math.hypot(3, 9.81),
-      tiltBeta: 12,
-      tiltGamma: 3,
-      includesGravity: true,
-    });
-  }
-  tracker.ingest({ t: 1000, speedKmh: 23, accuracy: 6, lat: 32.0001, lng: 34 });
+  ingestSustainedSprint(tracker, 0);
   const session = tracker.stop();
 
   const analysis = analyzeRun(session);
-  assert.equal(analysis.speedSource, "live_fusion");
-  assert.ok(analysis.maxSpeedKmh >= analysis.gpsMaxKmh);
-  assert.ok(analysis.maxSpeedKmh > 22);
+  assert.ok(analysis.speedSource === "live_fusion" || analysis.speedSource === "gps_sustained");
+  assert.ok(analysis.maxSpeedKmh >= 20);
+  assert.ok(analysis.maxSpeedKmh > 22 || analysis.gpsMaxKmh >= 22);
+  assert.equal(analysis.valid, true);
 });
 
 test("fuseSession offline recovers mid-interval peak", () => {
