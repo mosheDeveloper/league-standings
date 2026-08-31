@@ -153,6 +153,12 @@
       <label class="field-lab" for="participant-name">שם משתתף (לתיעוד)</label>
       <input id="participant-name" maxlength="48" placeholder="למשל: משה" autocomplete="name" />
 
+      <div id="device-model-field" hidden>
+        <label class="field-lab" for="device-model">דגם מכשיר (לתיעוד)</label>
+        <input id="device-model" maxlength="64" placeholder="למשל: iPhone 15 / Pixel 8" autocomplete="off" />
+        <p class="hint tight" id="device-model-hint">לא הצלחנו לקרוא את דגם המכשיר אוטומטית — הזינו אותו לפני המדידה.</p>
+      </div>
+
       <label class="field-lab" for="technique-exercise-select">תרגיל</label>
       <select id="technique-exercise-select" aria-label="בחירת תרגיל">
         <option value="slalom_one_foot">סלאלום רגל אחת</option>

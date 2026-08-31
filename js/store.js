@@ -6,6 +6,7 @@ const KEYS = {
   compareFilters: "sprint.max.compareFilters",
   techniqueSessions: "sprint.max.techniqueSessions",
   participantName: "sprint.max.participantName",
+  deviceModel: "sprint.max.deviceModel",
   improveChart: "sprint.max.improveChart",
 };
 
@@ -119,6 +120,12 @@ export const Store = {
   },
   setParticipantName(name) {
     localStorage.setItem(KEYS.participantName, String(name || "").trim().slice(0, 48));
+  },
+  getDeviceModel() {
+    return localStorage.getItem(KEYS.deviceModel) || "";
+  },
+  setDeviceModel(model) {
+    localStorage.setItem(KEYS.deviceModel, String(model || "").trim().slice(0, 64));
   },
   getImproveChartId() {
     return localStorage.getItem(KEYS.improveChart) || "speed_prs";

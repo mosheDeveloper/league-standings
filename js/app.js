@@ -17,6 +17,7 @@ import {
   scoreTechniqueSession,
   formatDurationMs,
   deviceInfo,
+  detectDeviceModel,
   shareTechniqueToWhatsApp,
   ascendingTechniqueTimeRecords,
   techniqueExerciseHistory,
@@ -66,6 +67,7 @@ const state = {
   techniqueExerciseId: null,
   lastTechniqueResult: null,
   techniqueTicker: null,
+  detectedDevice: null,
   improveTabId: "speed_prs",
   fusionDebug:
     typeof location !== "undefined" &&
@@ -1109,10 +1111,54 @@ function renderTechnique() {
   }
   const nameInput = $("participant-name");
   if (nameInput && !nameInput.value) nameInput.value = Store.getParticipantName();
+  syncDeviceModelField();
   renderTechniqueExerciseSelect();
   const ex = selectedTechniqueExercise();
   renderTechniqueDemo(ex);
   renderTechniqueHistory();
+}
+
+/** Prefer auto-detected model; otherwise show the same style of prompt as participant name. */
+async function syncDeviceModelField() {
+  const wrap = $("device-model-field");
+  const input = $("device-model");
+  if (!wrap || !input) return;
+
+  if (!state.detectedDevice) {
+    try {
+      state.detectedDevice = await detectDeviceModel();
+    } catch {
+      state.detectedDevice = { model: null, source: "unavailable" };
+    }
+  }
+
+  const detected = state.detectedDevice;
+  if (detected?.model) {
+    Store.setDeviceModel(detected.model);
+    input.value = detected.model;
+    wrap.hidden = true;
+    return;
+  }
+
+  wrap.hidden = false;
+  if (!input.value) input.value = Store.getDeviceModel();
+}
+
+function resolvedTechniqueDevice() {
+  const detected = state.detectedDevice;
+  if (detected?.model) {
+    return deviceInfo({
+      model: detected.model,
+      modelSource: detected.source || "ua_client_hints",
+      modelFamily: detected.family || null,
+    });
+  }
+  const manual = ($("device-model")?.value || Store.getDeviceModel() || "").trim();
+  return deviceInfo({
+    model: manual || null,
+    modelSource: manual ? "user" : null,
+    modelFamily: detected?.family || null,
+  });
 }
 
 function clearTechniqueTicker() {
@@ -1130,6 +1176,18 @@ async function startTechniqueRun() {
     return;
   }
   Store.setParticipantName(name);
+
+  await syncDeviceModelField();
+  const device = resolvedTechniqueDevice();
+  if (!device.model) {
+    const wrap = $("device-model-field");
+    if (wrap) wrap.hidden = false;
+    toast("הזינו דגם מכשיר לפני המדידה");
+    $("device-model")?.focus();
+    return;
+  }
+  Store.setDeviceModel(device.model);
+
   const exercise = selectedTechniqueExercise();
   if (!exercise) {
     toast("אין תרגיל נבחר");
@@ -1200,11 +1258,14 @@ async function stopTechniqueRun() {
     exercise,
   });
   const participantName = Store.getParticipantName();
+  const device = resolvedTechniqueDevice();
   const entry = Store.addTechniqueSession({
     at: new Date().toISOString(),
     participantName,
+    deviceModel: device.model || "",
     exerciseId: exercise?.id,
     exerciseName: exercise?.name,
+    exerciseDescription: exercise?.description || "",
     phonePlacement: "pocket",
     label: "unlabeled",
     durationMs: raw.durationMs,
@@ -1214,7 +1275,9 @@ async function stopTechniqueRun() {
     scoreNoteHe: scoring.noteHe,
     gps: raw.gps,
     motion: raw.motion,
-    device: deviceInfo(),
+    fused: raw.fused || [],
+    fusionDebug: raw.fusionDebug || null,
+    device,
     exercise,
   });
   state.lastTechniqueResult = entry;
@@ -1490,6 +1553,9 @@ function wireUi() {
   });
   $("participant-name")?.addEventListener("change", (e) => {
     Store.setParticipantName(e.target.value || "");
+  });
+  $("device-model")?.addEventListener("change", (e) => {
+    Store.setDeviceModel(e.target.value || "");
   });
   $("btn-technique-start")?.addEventListener("click", () => startTechniqueRun());
   $("btn-technique-stop")?.addEventListener("click", () => stopTechniqueRun());
