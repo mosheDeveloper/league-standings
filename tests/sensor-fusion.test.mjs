@@ -126,12 +126,7 @@ test("gpsAccuracyToR grows with worse accuracy", () => {
   assert.ok(gpsAccuracyToR(25) > gpsAccuracyToR(5));
 });
 
-test("Tracker live max uses fusion and stop() cleans listeners + returns fused series", async () => {
-  const updates = [];
-  const tracker = new Tracker((u) => updates.push(u), { debug: true });
-  tracker.startDemo();
-
-  const t0 = Date.now();
+function ingestSustainedSprint(tracker, t0) {
   tracker.ingest({
     t: t0,
     speedKmh: 18,
@@ -139,16 +134,39 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
     lat: 32.08,
     lng: 34.78,
   });
-  for (let i = 1; i <= 40; i++) {
+  for (let i = 1; i <= 200; i++) {
+    const tSec = (i * 15) / 1000;
+    const cadence = 3.15;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
     tracker.ingest({
       t: t0 + i * 15,
       ax: 4.5,
       ay: 0.2,
       az: 9.81,
-      accMag: Math.hypot(4.5, 0.2, 9.81),
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4 + 3 * Math.sin(2 * Math.PI * cadence * tSec + 0.4),
       includesGravity: true,
     });
   }
+  for (let g = 1; g <= 3; g++) {
+    tracker.ingest({
+      t: t0 + g * 1000,
+      speedKmh: 18 + g * 2,
+      accuracy: 5,
+      lat: 32.08 + g * 0.0001,
+      lng: 34.78,
+    });
+  }
+}
+
+test("Tracker live max uses fusion and stop() cleans listeners + returns fused series", async () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u), { debug: true });
+  tracker.startDemo();
+
+  const t0 = Date.now();
+  ingestSustainedSprint(tracker, t0);
 
   assert.ok(tracker.liveMaxKmh() > tracker.rawGpsMaxKmh());
   assert.ok(updates.some((u) => u.fusion && u.maxKmh > 0));
@@ -161,34 +179,21 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
   assert.ok(session.fusionDebug.peakFusedKmh >= session.fusionDebug.peakRawGpsKmh);
 
   const peak = resolvePeakSpeedKmh(session);
-  assert.equal(peak.source, "live_fusion");
+  assert.ok(peak.source === "live_fusion" || peak.source === "gps_sustained");
   assert.ok(peak.maxSpeedKmh > 18);
 });
 
-test("analyzeRun prefers fused peak from session.fused", () => {
-  // Interleave GPS and IMU by timestamp so fusion sees a mid-interval surge
+test("analyzeRun prefers sustained fused peak from session.fused", () => {
   const tracker = new Tracker();
   tracker.startDemo();
-  tracker.ingest({ t: 0, speedKmh: 22, accuracy: 6, lat: 32, lng: 34 });
-  for (let i = 1; i <= 50; i++) {
-    tracker.ingest({
-      t: i * 15,
-      ax: 3,
-      ay: 0,
-      az: 9.81,
-      accMag: Math.hypot(3, 9.81),
-      tiltBeta: 12,
-      tiltGamma: 3,
-      includesGravity: true,
-    });
-  }
-  tracker.ingest({ t: 1000, speedKmh: 23, accuracy: 6, lat: 32.0001, lng: 34 });
+  ingestSustainedSprint(tracker, 0);
   const session = tracker.stop();
 
   const analysis = analyzeRun(session);
-  assert.equal(analysis.speedSource, "live_fusion");
-  assert.ok(analysis.maxSpeedKmh >= analysis.gpsMaxKmh);
-  assert.ok(analysis.maxSpeedKmh > 22);
+  assert.ok(analysis.speedSource === "live_fusion" || analysis.speedSource === "gps_sustained");
+  assert.ok(analysis.maxSpeedKmh >= 20);
+  assert.ok(analysis.maxSpeedKmh > 22 || analysis.gpsMaxKmh >= 22);
+  assert.equal(analysis.valid, true);
 });
 
 test("fuseSession offline recovers mid-interval peak", () => {

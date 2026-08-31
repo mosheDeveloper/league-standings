@@ -2,8 +2,20 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { analyzeRun, filterGpsPoints, buildProfile, evaluateAntiCheat } from "../js/anticheat.js";
 import { rankAgainstTable, shareMessage } from "../js/compare.js";
+import { ascendingPersonalRecords } from "../js/pr-progress.js";
 import { sampleRunning, sampleCar } from "../js/demo.js";
 import { generateTrack, gpsSpike } from "../js/simulator.js";
+
+function run(partial) {
+  return {
+    id: partial.id,
+    at: partial.at,
+    maxKmh: partial.maxKmh,
+    mode: partial.mode || "run",
+    excludeFromPr: partial.excludeFromPr,
+    analysis: { valid: partial.valid !== false, maxSpeedKmh: partial.maxKmh },
+  };
+}
 
 function sessionFromSampler(sampler, seconds = 6, hz = 25) {
   const gps = [];
@@ -100,6 +112,54 @@ test("still phone at speed is treated as a car", () => {
   const v = analyzeRun({ gps, motion, durationMs: 4000 });
   assert.equal(v.valid, false);
   assert.ok(v.flags.includes("still_phone") || v.label === "still_phone");
+});
+
+test("hand-waving IMU spike without GPS movement is rejected", () => {
+  const t0 = 1_000_000;
+  const gps = [
+    { t: t0, speedKmh: 0, accuracy: 5, lat: 32.08, lng: 34.78 },
+    { t: t0 + 2500, speedKmh: 0.5, accuracy: 5, lat: 32.08, lng: 34.78 },
+  ];
+  const motion = [];
+  for (let i = 1; i <= 150; i++) {
+    motion.push({
+      t: t0 + i * 15,
+      ax: 8,
+      ay: 0,
+      az: 9.81,
+      accMag: Math.hypot(8, 9.81),
+      tiltBeta: 5,
+      tiltGamma: 1,
+    });
+  }
+  const v = analyzeRun({ gps, motion, durationMs: 3000 });
+  assert.equal(v.valid, false);
+  assert.ok(v.maxSpeedKmh < 10);
+  assert.ok(v.flags.includes("imu_gps_mismatch") || v.label === "imu_gps_mismatch");
+});
+
+test("sustained GPS peak requires a stable 2 second window", async () => {
+  const { findSustainedGpsPeakKmh } = await import("../js/anticheat.js");
+  const t0 = 1_000_000;
+  const gps = [];
+  for (let i = 0; i < 80; i++) {
+    gps.push({ t: t0 + i * 40, speedKmh: 24 + Math.sin(i / 8), accuracy: 6, lat: 32.08, lng: 34.78 });
+  }
+  const sustained = findSustainedGpsPeakKmh(gps);
+  assert.ok(sustained.peakKmh >= 22);
+  assert.equal(sustained.sustained, true);
+});
+
+test("unapproved runs are excluded from PR chart", () => {
+  const points = ascendingPersonalRecords([
+    run({ id: "good", at: "2026-01-01T10:00:00.000Z", maxKmh: 24 }),
+    run({ id: "bad", at: "2026-02-01T10:00:00.000Z", maxKmh: 40, valid: false }),
+    run({ id: "better", at: "2026-03-01T10:00:00.000Z", maxKmh: 27 }),
+  ]);
+  assert.deepEqual(
+    points.map((p) => p.id),
+    ["good", "better"]
+  );
 });
 
 test("share caption invites others to use the app", async () => {
