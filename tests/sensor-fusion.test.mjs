@@ -111,7 +111,7 @@ test("GPS jump vs fused estimate is rejected even at 1 Hz spacing", () => {
 test("approved speed updates only on accepted GPS while moving", () => {
   const fusion = new SensorFusion();
   fusion.pushGps({ t: 0, speedKmh: 15, accuracy: 5 });
-  assert.ok(Math.abs(fusion.approvedSpeedKmh() - 15) < 0.05);
+  assert.ok(Math.abs(fusion.approvedSpeedKmh(500) - 15) < 0.05);
   assert.ok(Math.abs(fusion.peakApprovedKmh() - 15) < 0.05);
 
   for (let i = 1; i <= 40; i++) {
@@ -124,16 +124,16 @@ test("approved speed updates only on accepted GPS while moving", () => {
     });
   }
   // IMU-only drift must not change the approved live value
-  assert.ok(Math.abs(fusion.approvedSpeedKmh() - 15) < 0.05);
+  assert.ok(Math.abs(fusion.approvedSpeedKmh(900) - 15) < 0.05);
   assert.ok(fusion.currentSpeedKmh() > 15);
 
   fusion.pushGps({ t: 1000, speedKmh: 55, accuracy: 5 });
-  assert.ok(Math.abs(fusion.approvedSpeedKmh() - 15) < 0.05);
+  assert.ok(Math.abs(fusion.approvedSpeedKmh(1500) - 15) < 0.05);
   assert.ok(Math.abs(fusion.peakApprovedKmh() - 15) < 0.05);
 
   fusion.pushGps({ t: 2000, speedKmh: 24, accuracy: 5 });
-  assert.ok(fusion.approvedSpeedKmh() > 15);
-  assert.ok(fusion.peakApprovedKmh() >= fusion.approvedSpeedKmh());
+  assert.ok(fusion.approvedSpeedKmh(2500) > 15);
+  assert.ok(fusion.peakApprovedKmh() >= fusion.approvedSpeedKmh(2500));
   assert.ok(fusion.peakApprovedKmh() <= 24.5);
 });
 
@@ -189,6 +189,13 @@ test("debug snapshot exposes raw vs fused fields", () => {
 
 test("gpsAccuracyToR grows with worse accuracy", () => {
   assert.ok(gpsAccuracyToR(25) > gpsAccuracyToR(5));
+});
+
+test("approved speed decays after GPS staleness window", () => {
+  const fusion = new SensorFusion();
+  fusion.pushGps({ t: 1000, speedKmh: 12, accuracy: 5 });
+  assert.equal(fusion.approvedSpeedKmh(1500), 12);
+  assert.equal(fusion.approvedSpeedKmh(4000), 0);
 });
 
 function ingestSustainedSprint(tracker, t0) {
