@@ -114,6 +114,81 @@ test("still phone at speed is treated as a car", () => {
   assert.ok(v.flags.includes("still_phone") || v.label === "still_phone");
 });
 
+test("rapid forward/back rocking without net progress is rejected", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const mPerDeg = 111320;
+  const hz = 25;
+  for (let i = 0; i < 5 * hz; i++) {
+    const tSec = i / hz;
+    const t = t0 + i * (1000 / hz);
+    const x = 0.7 * Math.sin(2 * Math.PI * 1.5 * tSec);
+    const lat = 32.08 + x / mPerDeg;
+    const lng = 34.78;
+    let speedKmh = 0;
+    if (i > 0) {
+      const prev = gps[i - 1];
+      const dLat = (lat - prev.lat) * mPerDeg;
+      const dLng = (lng - prev.lng) * mPerDeg * Math.cos((32.08 * Math.PI) / 180);
+      speedKmh = (Math.hypot(dLat, dLng) * hz) * 3.6;
+    }
+    const swing = 8 * Math.sin(2 * Math.PI * 2.5 * tSec);
+    gps.push({ t, speedKmh, accuracy: 6, lat, lng });
+    motion.push({
+      t,
+      ax: swing,
+      ay: 0.3,
+      az: 9.81,
+      accMag: Math.hypot(swing, 0.3, 9.81),
+      tiltBeta: 25 + 15 * Math.sin(i / 2),
+      tiltGamma: 8,
+      includesGravity: true,
+    });
+  }
+  const v = analyzeRun({ gps, motion, durationMs: 5000 });
+  assert.equal(v.valid, false);
+  assert.ok(v.maxSpeedKmh < 8);
+  assert.ok(v.flags.includes("oscillating_path") || v.label === "oscillating_path" || v.label === "no_speed");
+});
+
+test("straight sprint with net progress is still accepted", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const mPerDeg = 111320;
+  const hz = 25;
+  let x = 0;
+  for (let i = 0; i < 4 * hz; i++) {
+    const tSec = i / hz;
+    const t = t0 + i * (1000 / hz);
+    const speedKmh = 22;
+    x += (speedKmh / 3.6) / hz;
+    const bounce = 3.8 * Math.sin(2 * Math.PI * 3.1 * tSec);
+    gps.push({
+      t,
+      speedKmh,
+      accuracy: 6,
+      lat: 32.08 + x / mPerDeg,
+      lng: 34.78,
+    });
+    motion.push({
+      t,
+      ax: 2.2,
+      ay: 0.3,
+      az: 9.81,
+      accMag: 9.9 + bounce,
+      tiltBeta: 14 + 8 * Math.sin(2 * Math.PI * 3.1 * tSec),
+      tiltGamma: 3,
+      includesGravity: true,
+    });
+  }
+  const v = analyzeRun({ gps, motion, durationMs: 4000 });
+  assert.equal(v.valid, true);
+  assert.ok(v.maxSpeedKmh >= 18);
+  assert.equal(v.flags.includes("oscillating_path"), false);
+});
+
 test("hand-waving IMU spike without GPS movement is rejected", () => {
   const t0 = 1_000_000;
   const gps = [
@@ -144,23 +219,36 @@ test("official GPS peak uses rolling mean over ~1.5s window", async () => {
   assert.equal(PEAK_WINDOW_MS, 1500);
   const t0 = 1_000_000;
   const gps = [];
+  const mPerDeg = 111320;
+  let x = 0;
   for (let i = 0; i < 80; i++) {
-    gps.push({ t: t0 + i * 40, speedKmh: 24 + Math.sin(i / 8), accuracy: 6, lat: 32.08, lng: 34.78 });
+    const dt = 0.04;
+    const speedKmh = 24 + Math.sin(i / 8);
+    x += (speedKmh / 3.6) * dt;
+    gps.push({
+      t: t0 + i * 40,
+      speedKmh,
+      accuracy: 6,
+      lat: 32.08 + x / mPerDeg,
+      lng: 34.78,
+    });
   }
   const sustained = findSustainedGpsPeakKmh(gps);
   assert.ok(sustained.peakKmh >= 22);
   assert.equal(sustained.sustained, true);
   assert.equal(sustained.method, "rolling_mean");
+  assert.ok(sustained.pathProgress?.progress >= 0.4);
 
   // A brief spike must not become the official peak
   const spiked = [
     ...gps,
-    { t: t0 + 4000, speedKmh: 55, accuracy: 6, lat: 32.08, lng: 34.78 },
-    { t: t0 + 4050, speedKmh: 12, accuracy: 6, lat: 32.08, lng: 34.78 },
+    { t: t0 + 4000, speedKmh: 55, accuracy: 6, lat: 32.08 + (x + 1) / mPerDeg, lng: 34.78 },
+    { t: t0 + 4050, speedKmh: 12, accuracy: 6, lat: 32.08 + (x + 1.1) / mPerDeg, lng: 34.78 },
   ];
   const rolled = findRollingMeanPeak(spiked, (p) => p.speedKmh, {
     windowMs: PEAK_WINDOW_MS,
     minSpeedKmh: 6,
+    requirePathProgress: true,
   });
   assert.ok(rolled.peakKmh < 40);
 });
