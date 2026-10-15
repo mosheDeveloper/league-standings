@@ -137,35 +137,44 @@ test("approved speed updates only on accepted GPS while moving", () => {
   assert.ok(fusion.peakApprovedKmh() <= 24.5);
 });
 
-test("Tracker live UI uses approved speed, not IMU drift", () => {
+test("Tracker live UI hides speed until run sustain, then uses GPS-anchored speed", () => {
   const updates = [];
   const tracker = new Tracker((u) => updates.push(u), { officialPeakIntervalMs: 0 });
   tracker.startDemo();
   const t0 = Date.now();
-  for (let g = 0; g <= 4; g++) {
-    tracker.ingest({
-      t: t0 + g * 400,
-      speedKmh: 18,
-      accuracy: 5,
-      lat: 32.08 + g * 0.00005,
-      lng: 34.78,
-    });
-  }
-  for (let i = 1; i <= 40; i++) {
-    tracker.ingest({
-      t: t0 + 1600 + i * 15,
+  const cadence = 3.15;
+  for (let i = 0; i <= 400; i++) {
+    const t = t0 + i * 15;
+    const tSec = (i * 15) / 1000;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
+    const sample = {
+      t,
       ax: 4.5,
       ay: 0.2,
       az: 9.81,
-      accMag: Math.hypot(4.5, 0.2, 9.81),
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4,
       includesGravity: true,
-    });
+    };
+    if (i % 40 === 0) {
+      sample.speedKmh = 18;
+      sample.accuracy = 5;
+      sample.lat = 32.08 + (i / 40) * 0.00005;
+      sample.lng = 34.78;
+    }
+    tracker.ingest(sample);
   }
+  const early = updates.find((u) => u.durationMs < 2500);
+  assert.ok(early);
+  assert.equal(early.speedKmh, 0);
   const last = updates[updates.length - 1];
-  assert.ok(last.rawSpeedKmh > last.speedKmh);
-  assert.equal(last.speedKmh, 18);
-  assert.ok(last.maxKmh >= 16);
+  assert.equal(last.runReady, true);
+  assert.ok(last.speedKmh >= 16 && last.speedKmh <= 24);
+  assert.ok(last.maxKmh >= 8);
   assert.equal(last.moving, true);
+  // Raw fused may still drift above GPS-anchored display speed
+  assert.ok(last.rawSpeedKmh + 0.05 >= last.speedKmh);
 });
 
 test("approved speed is zero when phone is still", () => {
@@ -210,19 +219,14 @@ test("approved speed decays after GPS staleness window", () => {
 });
 
 function ingestSustainedSprint(tracker, t0) {
-  tracker.ingest({
-    t: t0,
-    speedKmh: 18,
-    accuracy: 5,
-    lat: 32.08,
-    lng: 34.78,
-  });
-  for (let i = 1; i <= 200; i++) {
+  const cadence = 3.15;
+  // ≥5 s of pocket-like bounce + GPS so the speedometer gate opens.
+  for (let i = 0; i <= 400; i++) {
+    const t = t0 + i * 15;
     const tSec = (i * 15) / 1000;
-    const cadence = 3.15;
     const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
-    tracker.ingest({
-      t: t0 + i * 15,
+    const sample = {
+      t,
       ax: 4.5,
       ay: 0.2,
       az: 9.81,
@@ -230,16 +234,14 @@ function ingestSustainedSprint(tracker, t0) {
       tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
       tiltGamma: 4 + 3 * Math.sin(2 * Math.PI * cadence * tSec + 0.4),
       includesGravity: true,
-    });
-  }
-  for (let g = 1; g <= 3; g++) {
-    tracker.ingest({
-      t: t0 + g * 1000,
-      speedKmh: 18 + g * 2,
-      accuracy: 5,
-      lat: 32.08 + g * 0.0001,
-      lng: 34.78,
-    });
+    };
+    if (i % 50 === 0) {
+      sample.speedKmh = 18 + Math.min(6, Math.floor(i / 50) * 2);
+      sample.accuracy = 5;
+      sample.lat = 32.08 + (i / 50) * 0.0001;
+      sample.lng = 34.78;
+    }
+    tracker.ingest(sample);
   }
 }
 

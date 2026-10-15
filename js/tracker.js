@@ -3,7 +3,13 @@ import {
   haversineMeters,
   fuseSession,
 } from "./sensor-fusion.js";
-import { resolvePeakSpeedKmh } from "./anticheat.js";
+import {
+  resolvePeakSpeedKmh,
+  isRunLikeAt,
+  MIN_RUN_SUSTAIN_MS,
+  MIN_RUN_SPEED_KMH,
+  RUN_SUSTAIN_GAP_MS,
+} from "./anticheat.js";
 
 export class Tracker {
   constructor(onUpdate, options = {}) {
@@ -35,34 +41,112 @@ export class Tracker {
     this._cachedOfficialPeakKmh = 0;
     this._lastOfficialPeakAt = 0;
     this._peakCacheGpsLen = -1;
+    /** Online sustain of run-like + GPS speed (gates the speedometer). */
+    this._runStretchStart = null;
+    this._runLastGoodAt = null;
+    this._lastSustainCheckT = null;
+  }
+
+  /** Latest sample clock (tests/demos may use synthetic timestamps). */
+  _sampleNow(fallback = Date.now()) {
+    return (
+      this._runLastGoodAt ??
+      this._lastMovingAt ??
+      this._lastImuProcessT ??
+      (this.gps.length ? this.gps[this.gps.length - 1].t : fallback)
+    );
   }
 
   /** True when recent IMU activity suggests the phone is being carried while moving. */
-  isMoving() {
-    return this._lastMovingAt > 0 && Date.now() - this._lastMovingAt < 1500;
-  }
-
-  approvedSpeedKmh() {
-    if (!this.isMoving()) return 0;
-    return this.fusion.approvedSpeedKmh();
+  isMoving(now = this._sampleNow()) {
+    return this._lastMovingAt > 0 && now - this._lastMovingAt < 1500;
   }
 
   /**
-   * Live "שיא" must match the post-run official metric (rolling-window mean),
-   * not an instantaneous GPS flash — that mismatch produced final results of 0.
-   * Recompute on every new GPS fix; throttle only between IMU-only updates.
+   * Advance / reset the continuous run-like stretch used to gate live speed.
+   * Requires pocket- or hand-running IMU pattern plus GPS-anchored speed.
+   */
+  _updateRunSustain(t = Date.now()) {
+    // Pattern scoring is relatively heavy — check ~6–7×/s, not every IMU tick.
+    if (this._lastSustainCheckT != null && t - this._lastSustainCheckT < 150) return;
+    this._lastSustainCheckT = t;
+
+    const speed = this.fusion.approvedSpeedKmh(t);
+    const runLike = this.motion.length >= 8 && isRunLikeAt(this.motion, t);
+    const ok = runLike && speed >= MIN_RUN_SPEED_KMH && this.isMoving(t);
+    if (ok) {
+      if (this._runStretchStart == null) this._runStretchStart = t;
+      else if (this._runLastGoodAt != null && t - this._runLastGoodAt > RUN_SUSTAIN_GAP_MS) {
+        this._runStretchStart = t;
+      }
+      this._runLastGoodAt = t;
+    } else if (
+      this._runStretchStart != null &&
+      this._runLastGoodAt != null &&
+      t - this._runLastGoodAt > RUN_SUSTAIN_GAP_MS
+    ) {
+      this._runStretchStart = null;
+      this._runLastGoodAt = null;
+    }
+  }
+
+  /** How long the current run-like + GPS stretch has lasted (ms). */
+  runSustainMs(now = this._sampleNow()) {
+    if (this._runStretchStart == null || this._runLastGoodAt == null) return 0;
+    if (now - this._runLastGoodAt > RUN_SUSTAIN_GAP_MS) return 0;
+    return Math.max(0, this._runLastGoodAt - this._runStretchStart);
+  }
+
+  /** True once the live meter may show a speed (≥ MIN_RUN_SUSTAIN_MS). */
+  hasDisplayableRun(now = this._sampleNow()) {
+    return this.runSustainMs(now) >= MIN_RUN_SUSTAIN_MS;
+  }
+
+  approvedSpeedKmh(now = this._sampleNow()) {
+    if (!this.isMoving(now)) return 0;
+    return this.fusion.approvedSpeedKmh(now);
+  }
+
+  /**
+   * Speedometer value: GPS-anchored speed only after ≥5 s of run-like motion.
+   * Hand waves, car travel, and brief jolts stay at 0.
+   */
+  displaySpeedKmh(now = this._sampleNow()) {
+    if (!this.hasDisplayableRun(now)) return 0;
+    return this.approvedSpeedKmh(now);
+  }
+
+  /**
+   * Live "שיא" must match the post-run official metric (rolling-window mean
+   * inside a ≥5 s run-like window). Stays 0 until that sustain is met.
    */
   liveApprovedMaxKmh(force = false) {
-    const now = Date.now();
+    const now = this._sampleNow();
+    // Hide max until the first ≥5 s run stretch; once recorded, keep it even
+    // if the live stretch drops (live speed goes to 0, שיא stays).
+    if (
+      this.active &&
+      !this.hasDisplayableRun(now) &&
+      !force &&
+      this._cachedOfficialPeakKmh <= 0
+    ) {
+      return 0;
+    }
     const gpsLen = this.gps.length;
     const gpsChanged = gpsLen !== this._peakCacheGpsLen;
+    const wall = Date.now();
     if (
       !force &&
       !gpsChanged &&
       this._lastOfficialPeakAt > 0 &&
-      now - this._lastOfficialPeakAt < this._officialPeakIntervalMs
+      wall - this._lastOfficialPeakAt < this._officialPeakIntervalMs
     ) {
       return this._cachedOfficialPeakKmh;
+    }
+    if (this.active && !this.hasDisplayableRun(now) && this._cachedOfficialPeakKmh <= 0) {
+      this._lastOfficialPeakAt = wall;
+      this._peakCacheGpsLen = gpsLen;
+      return 0;
     }
     const peak = resolvePeakSpeedKmh({
       gps: this.gps,
@@ -70,7 +154,7 @@ export class Tracker {
       fused: this.fusion.fusedSeries(),
     });
     this._cachedOfficialPeakKmh = peak.maxSpeedKmh || 0;
-    this._lastOfficialPeakAt = now;
+    this._lastOfficialPeakAt = wall;
     this._peakCacheGpsLen = gpsLen;
     return this._cachedOfficialPeakKmh;
   }
@@ -177,19 +261,23 @@ export class Tracker {
         includesGravity: linear === true ? false : includesGravity !== false,
       });
     }
+    this._updateRunSustain(t);
     this._emit();
   }
 
   _emit() {
     if (!this.onUpdate) return;
     const debug = this.debug ? this.getFusionDebug() : undefined;
+    const sustainMs = this.runSustainMs();
     this.onUpdate({
       durationMs: Date.now() - this.startedAt,
-      speedKmh: this.approvedSpeedKmh(),
+      speedKmh: this.displaySpeedKmh(),
       maxKmh: this.liveApprovedMaxKmh(),
       rawSpeedKmh: this.currentSpeedKmh(),
       rawMaxKmh: this.liveMaxKmh(),
       moving: this.isMoving(),
+      runSustainMs: sustainMs,
+      runReady: sustainMs >= MIN_RUN_SUSTAIN_MS,
       rawGpsSpeedKmh: this.fusion._lastRawGpsKmh,
       rawMaxKmhGps: this.rawGpsMaxKmh(),
       samples: this.gps.length,

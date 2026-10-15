@@ -10,14 +10,26 @@ export const HUMAN_SPEED_CAP_KMH = 45;
 /**
  * Official max speed = highest mean speed over a sliding window of this length.
  * ~1.5 s captures a sprint crest without requiring an unrealistically flat plateau.
+ * Crest is only counted inside a longer run-like sustain (see MIN_RUN_SUSTAIN_MS).
  */
 export const PEAK_WINDOW_MS = 1500;
 /** @deprecated Use PEAK_WINDOW_MS — kept as alias for older callers/tests. */
 export const SUSTAINED_PEAK_MS = PEAK_WINDOW_MS;
+/**
+ * Live speedometer + official metrics only use speed from a continuous run-like
+ * stretch of at least this long (pocket or hand while actually running).
+ */
+export const MIN_RUN_SUSTAIN_MS = 5000;
+/** Brief GPS/IMU glitches under this do not reset the sustain timer. */
+export const RUN_SUSTAIN_GAP_MS = 450;
+/** Minimum GPS/fused speed (km/h) that counts toward a run stretch. */
+export const MIN_RUN_SPEED_KMH = 6;
 /** Minimum GPS speed (km/h) in the peak window to confirm a fused peak. */
 export const MIN_GPS_CORRELATION_KMH = 6;
 /** Below this, a finished run is not treated as a measurable (shareable) peak. */
 export const MIN_RECORDABLE_KMH = 8;
+/** Motion window used for live / sliding pattern checks. */
+export const MOTION_PATTERN_WINDOW_MS = 2500;
 const MS_PER_HOUR = 3.6;
 
 export function kmh(mpsVal) {
@@ -119,14 +131,26 @@ export function filterGpsSpikes(samples) {
   };
 }
 
-function motionStats(motion) {
+/**
+ * Classify IMU bounce as pocket running, hand-held running, or neither.
+ *
+ * Pocket / waist: foot cadence ~2–4.2 Hz, moderate accel variance, moderate tilt.
+ * Hand while running: same foot cadence band (felt through the arm) plus larger
+ * tilt from arm swing — still periodic, not a chaotic phone wave.
+ * Car / still: low bounce + low cadence. Hand wave without running: irregular
+ * or out-of-band cadence / huge accel without a stable foot period.
+ */
+export function motionStats(motion) {
   if (!motion || motion.length < 8) {
     return {
       cadenceHz: 0,
       accStd: 0,
       tiltStd: 0,
       bounceScore: 0,
+      pocketLike: false,
+      handLike: false,
       runningLikeMotion: false,
+      vehicleLike: false,
     };
   }
   const acc = motion.map((m) => m.accMag ?? Math.hypot(m.ax || 0, m.ay || 0, m.az || 0));
@@ -143,14 +167,115 @@ function motionStats(motion) {
   const varScore = clamp(accStd / 4, 0, 1);
   const tiltScore = clamp(tiltStd / 10, 0, 1);
   const bounceScore = cadenceScore * 0.5 + varScore * 0.35 + tiltScore * 0.15;
-  const runningLikeMotion = cadenceHz >= 1.8 && cadenceHz <= 4.8 && accStd >= 1.4 && bounceScore >= 0.38;
+
+  // Pocket / belt: clear step cadence, torso-scale bounce, limited tilt.
+  const pocketLike =
+    cadenceHz >= 2.0 &&
+    cadenceHz <= 4.2 &&
+    accStd >= 1.5 &&
+    accStd <= 9 &&
+    tiltStd >= 1.5 &&
+    tiltStd <= 28 &&
+    bounceScore >= 0.38;
+
+  // Hand while running: arm swing raises tilt; foot period still shows in accel.
+  const handLike =
+    cadenceHz >= 1.6 &&
+    cadenceHz <= 4.5 &&
+    accStd >= 1.8 &&
+    accStd <= 12 &&
+    tiltStd >= 5 &&
+    bounceScore >= 0.34;
+
+  const runningLikeMotion = pocketLike || handLike;
+  // Smooth cabin motion — low bounce regardless of GPS speed.
+  const vehicleLike = accStd < 1.2 && cadenceHz < 1.5 && bounceScore < 0.28;
+
   return {
     cadenceHz: Math.round(cadenceHz * 100) / 100,
     accStd: Math.round(accStd * 100) / 100,
     tiltStd: Math.round(tiltStd * 100) / 100,
     bounceScore: Math.round(bounceScore * 100) / 100,
+    pocketLike,
+    handLike,
     runningLikeMotion,
+    vehicleLike,
   };
+}
+
+/**
+ * Recent motion slice ending at `endT` (default: last sample).
+ */
+export function motionWindowEndingAt(motion, endT, windowMs = MOTION_PATTERN_WINDOW_MS) {
+  const list = motion || [];
+  if (!list.length) return [];
+  const end = endT ?? list[list.length - 1].t;
+  const start = end - windowMs;
+  return list.filter((m) => m.t >= start && m.t <= end);
+}
+
+/**
+ * True when the latest ~2.5 s of IMU looks like pocket or hand running.
+ */
+export function isRunLikeAt(motion, tMs, windowMs = MOTION_PATTERN_WINDOW_MS) {
+  return motionStats(motionWindowEndingAt(motion, tMs, windowMs)).runningLikeMotion;
+}
+
+/**
+ * Contiguous [start,end] intervals where motion stayed run-like and, when GPS
+ * is provided, speed stayed above MIN_RUN_SPEED_KMH. Only intervals lasting
+ * MIN_RUN_SUSTAIN_MS are returned — these gate the speedometer and peaks.
+ */
+export function findSustainedRunWindows(motion, gpsPoints = [], options = {}) {
+  const sustainMs = options.sustainMs ?? MIN_RUN_SUSTAIN_MS;
+  const gapMs = options.gapMs ?? RUN_SUSTAIN_GAP_MS;
+  const windowMs = options.windowMs ?? MOTION_PATTERN_WINDOW_MS;
+  const minSpeed = options.minSpeedKmh ?? MIN_RUN_SPEED_KMH;
+  const stepMs = options.stepMs ?? 200;
+  const list = [...(motion || [])].sort((a, b) => a.t - b.t);
+  if (list.length < 8) return [];
+
+  const t0 = list[0].t;
+  const t1 = list[list.length - 1].t;
+  if (t1 - t0 < sustainMs * 0.5) return [];
+
+  const hasGps = (gpsPoints || []).length > 0;
+  let stretchStart = null;
+  let lastGood = null;
+  const raw = [];
+
+  const closeStretch = () => {
+    if (stretchStart != null && lastGood != null && lastGood - stretchStart >= sustainMs) {
+      raw.push({ startMs: stretchStart, endMs: lastGood });
+    }
+    stretchStart = null;
+    lastGood = null;
+  };
+
+  for (let t = t0; t <= t1; t += stepMs) {
+    const runLike = isRunLikeAt(list, t, windowMs);
+    const speedOk = !hasGps || gpsSpeedAtTime(gpsPoints, t) >= minSpeed;
+    const ok = runLike && speedOk;
+    if (ok) {
+      if (stretchStart == null) stretchStart = t;
+      else if (lastGood != null && t - lastGood > gapMs) {
+        closeStretch();
+        stretchStart = t;
+      }
+      lastGood = t;
+    } else if (stretchStart != null && lastGood != null && t - lastGood > gapMs) {
+      closeStretch();
+    }
+  }
+  closeStretch();
+  return raw;
+}
+
+function pointsInWindows(points, windows) {
+  if (!windows?.length) return [];
+  return (points || []).filter((p) =>
+    windows.some((w) => p.t >= w.startMs && p.t <= w.endMs)
+  );
 }
 
 export function buildProfile(runs) {
@@ -402,17 +527,58 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
 /**
  * Resolve peak speed: prefer live fused series from Tracker, else offline
  * GPS+IMU fusion when accel axes exist, else filtered GPS only.
- * Official peak = max of PEAK_WINDOW_MS rolling means; fused needs GPS correlation.
+ * Official peak = max of PEAK_WINDOW_MS rolling means inside a ≥MIN_RUN_SUSTAIN_MS
+ * run-like window (pocket or hand). Speeds outside those windows are ignored.
  */
 export function resolvePeakSpeedKmh(session = {}) {
   const gps = session.gps || [];
   const motion = session.motion || [];
   const kept = filterGpsPoints(gps);
   const gpsMax = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
-  const gpsSustained = findSustainedGpsPeakKmh(gps);
+  const emptyGpsSustained = {
+    peakKmh: 0,
+    sustained: false,
+    sustainedMs: 0,
+    windowStartMs: null,
+    windowEndMs: null,
+    method: "rolling_mean",
+  };
+
+  if ((motion || []).length < 8) {
+    return {
+      maxSpeedKmh: 0,
+      gpsMaxKmh: gpsMax,
+      gpsSustainedPeakKmh: 0,
+      source: "no_motion",
+      fusionDebug: session.fusionDebug || null,
+      keptGps: kept.length,
+      sustainedPeak: null,
+      gpsSustained: emptyGpsSustained,
+      runWindows: [],
+    };
+  }
+
+  const runWindows = findSustainedRunWindows(motion, kept);
+  if (!runWindows.length) {
+    return {
+      maxSpeedKmh: 0,
+      gpsMaxKmh: gpsMax,
+      gpsSustainedPeakKmh: 0,
+      source: "no_run_sustain",
+      fusionDebug: session.fusionDebug || null,
+      keptGps: kept.length,
+      sustainedPeak: null,
+      gpsSustained: emptyGpsSustained,
+      runWindows,
+    };
+  }
+
+  const gatedGps = pointsInWindows(kept, runWindows);
+  const gpsSustained = findSustainedGpsPeakKmh(gatedGps);
 
   if (session.fused?.length) {
-    const sustained = findSustainedPeakKmh(session.fused, kept);
+    const gatedFused = pointsInWindows(session.fused, runWindows);
+    const sustained = findSustainedPeakKmh(gatedFused, gatedGps);
     const fusedMax = sustained.peakKmh;
     return {
       maxSpeedKmh: Math.max(gpsSustained.peakKmh, fusedMax),
@@ -423,12 +589,14 @@ export function resolvePeakSpeedKmh(session = {}) {
       keptGps: kept.length,
       sustainedPeak: sustained,
       gpsSustained,
+      runWindows,
     };
   }
 
-  if (motionHasAxes(motion) && gps.length) {
-    const fused = fuseSession({ gps, motion });
-    const sustained = findSustainedPeakKmh(fused.series, kept);
+  if (motionHasAxes(motion) && gatedGps.length) {
+    const fused = fuseSession({ gps: gatedGps, motion });
+    const gatedFused = pointsInWindows(fused.series, runWindows);
+    const sustained = findSustainedPeakKmh(gatedFused.length ? gatedFused : fused.series, gatedGps);
     const fusedMax = sustained.peakKmh;
     const maxSpeedKmh = Math.max(gpsSustained.peakKmh, fusedMax);
     return {
@@ -440,11 +608,10 @@ export function resolvePeakSpeedKmh(session = {}) {
       keptGps: kept.length,
       sustainedPeak: sustained,
       gpsSustained,
+      runWindows,
     };
   }
 
-  // Never fall back to a single GPS sample — that caused "live max then final 0"
-  // mismatches when a spike flashed on screen but failed the official window.
   return {
     maxSpeedKmh: gpsSustained.peakKmh,
     gpsMaxKmh: gpsMax,
@@ -454,6 +621,7 @@ export function resolvePeakSpeedKmh(session = {}) {
     keptGps: kept.length,
     sustainedPeak: null,
     gpsSustained,
+    runWindows,
   };
 }
 
@@ -467,90 +635,101 @@ export function analyzeRun(session = {}) {
   const rawMaxKmh = gps.length ? Math.max(...gps.map((p) => p.speedKmh || 0)) : 0;
   const kept = filterGpsPoints(gps);
   const peak = resolvePeakSpeedKmh(session);
-  const maxSpeedKmh = peak.maxSpeedKmh;
+  const measuredPeakKmh = peak.maxSpeedKmh;
   const sustainedPeak = peak.sustainedPeak;
   const stats = motionStats(motion);
+  const runWindows = peak.runWindows || [];
 
   const flags = [];
   const stillPhone = stats.accStd < 0.85 && stats.tiltStd < 1.8 && stats.cadenceHz < 1.25;
   if (stillPhone) flags.push("still_phone");
+  if (stats.vehicleLike) flags.push("vehicle_like_motion");
+  if (peak.source === "no_run_sustain" || peak.source === "no_motion") {
+    flags.push("no_run_sustain");
+  }
 
   const candidateKmh = sustainedPeak?.candidateKmh || 0;
   const gpsSustainedPeakKmh = peak.gpsSustainedPeakKmh || peak.gpsSustained?.peakKmh || 0;
   const imuOnlySpike =
     candidateKmh >= 12 &&
-    maxSpeedKmh < 10 &&
+    measuredPeakKmh < 10 &&
     gpsSustainedPeakKmh < MIN_GPS_CORRELATION_KMH;
   if (imuOnlySpike) flags.push("imu_gps_mismatch");
   if (sustainedPeak?.sustained && !sustainedPeak.gpsCorrelated && candidateKmh >= 12) {
     flags.push("no_gps_correlation");
   }
   if (
-    maxSpeedKmh >= 12 &&
+    measuredPeakKmh >= 12 &&
     gpsSustainedPeakKmh < MIN_GPS_CORRELATION_KMH &&
     (!sustainedPeak || sustainedPeak.peakKmh <= 0)
   ) {
     flags.push("no_sustained_peak");
   }
 
-  const speedTerm = clamp((maxSpeedKmh - 22) / 38, 0, 1);
+  // Vehicle score uses raw GPS max so smooth car travel is still rejected even
+  // when gated peak is already 0.
+  const rawKeptMax = kept.length ? Math.max(...kept.map((p) => p.speedKmh || 0)) : 0;
+  const speedTerm = clamp((Math.max(measuredPeakKmh, rawKeptMax) - 22) / 38, 0, 1);
   const cadenceTerm = stats.cadenceHz >= 1.8 && stats.cadenceHz <= 4.8 ? 0 : 1;
   const varTerm = stats.accStd < 1.2 ? 1 : 0;
   const vehicleScore =
     Math.round((cadenceTerm * 0.45 + varTerm * 0.35 + speedTerm * 0.2) * 100) / 100;
 
-  if (maxSpeedKmh > HUMAN_SPEED_CAP_KMH) flags.push("over_human_cap");
-  if (maxSpeedKmh > 55) flags.push("hard_vehicle_speed");
+  if (measuredPeakKmh > HUMAN_SPEED_CAP_KMH) flags.push("over_human_cap");
+  if (measuredPeakKmh > 55 || rawKeptMax > 55) flags.push("hard_vehicle_speed");
   if (vehicleScore >= 0.55) flags.push("vehicle_motion");
   if (stats.runningLikeMotion) flags.push("running_motion");
+  if (stats.pocketLike) flags.push("pocket_motion");
+  if (stats.handLike) flags.push("hand_motion");
 
   const profile = session.profile;
   if (profile && (profile.runs || profile.count) >= 3) {
     const limit = Math.max(profile.p90 || profile.mean || 8, 8) * 1.35;
-    if (maxSpeedKmh > limit && vehicleScore >= 0.4) flags.push("profile_violation");
+    if (measuredPeakKmh > limit && vehicleScore >= 0.4) flags.push("profile_violation");
   }
 
   let valid = true;
   let label = "ok";
-  let messageHe = `הריצה נראית תקינה. השיא הוא ממוצע המהירות הגבוה ביותר על ${(PEAK_WINDOW_MS / 1000).toFixed(1)} שנ׳.`;
+  let messageHe = `נמדדה ריצה. השיא הוא ממוצע המהירות הגבוה ביותר על ${(PEAK_WINDOW_MS / 1000).toFixed(1)} שנ׳ בתוך מקטע ריצה של לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳.`;
 
-  if (flags.includes("hard_vehicle_speed") || maxSpeedKmh > 55) {
+  if (flags.includes("hard_vehicle_speed") || measuredPeakKmh > 55 || rawKeptMax > 55) {
     valid = false;
     label = "vehicle_speed";
-    messageHe = "מהירות לא אנושית — נחסמה כנסיעה ברכב.";
+    messageHe = "לא נמדדה ריצה — המהירות נראית כמו נסיעה ברכב.";
   } else if (flags.includes("imu_gps_mismatch") || flags.includes("no_gps_correlation")) {
     valid = false;
     label = "imu_gps_mismatch";
-    messageHe = "שיא המהירות לא אושר — אין התאמה מספקת ל-GPS (למשל הזזת הטלפון בלי ריצה).";
+    messageHe = "לא נמדדה ריצה — תנועת הטלפון לא תואמת תנועה ב-GPS (למשל נפנוף יד).";
   } else if (flags.includes("no_sustained_peak")) {
     valid = false;
     label = "no_sustained_peak";
-    messageHe = `שיא המהירות לא אושר — נדרש ממוצע מהירות של כ־${(PEAK_WINDOW_MS / 1000).toFixed(1)} שנ׳ עם אימות GPS.`;
-  } else if (maxSpeedKmh < MIN_RECORDABLE_KMH) {
+    messageHe = `לא נמדדה ריצה — צריך מקטע ריצה של לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳ עם GPS יציב.`;
+  } else if (flags.includes("no_run_sustain") || measuredPeakKmh < MIN_RECORDABLE_KMH) {
     valid = false;
-    label = "no_speed";
-    flags.push("no_speed");
+    label = flags.includes("no_run_sustain") ? "no_run_sustain" : "no_speed";
+    if (!flags.includes("no_speed")) flags.push("no_speed");
     messageHe =
-      "לא נמדד שיא מאושר. שימו את הטלפון בכיס/חגורת מותן, רוצו לפחות כמה שניות עם GPS יציב, ואז עצרו.";
-  } else if (stillPhone && maxSpeedKmh >= 12) {
+      `לא נמדדה ריצה. שימו את הטלפון בכיס, בחגורה או ביד יציבה בזמן ריצה — לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳ ברצף.`;
+  } else if (stillPhone && (measuredPeakKmh >= 12 || rawKeptMax >= 12)) {
     valid = false;
     label = "still_phone";
-    messageHe = "הטלפון כמעט לא זז במהלך המדידה — כך מזהים נסיעה ברכב.";
-  } else if (vehicleScore >= 0.55 && maxSpeedKmh >= 25 && !stats.runningLikeMotion) {
+    messageHe = "לא נמדדה ריצה — הטלפון כמעט לא זז (נפוץ בנסיעה ברכב).";
+  } else if (vehicleScore >= 0.55 && (measuredPeakKmh >= 25 || rawKeptMax >= 25) && !stats.runningLikeMotion) {
     valid = false;
     label = "smooth_high_speed";
-    messageHe = "תנועת הטלפון חלקה כמו ברכב, והמהירות גבוהה מדי לריצה.";
+    messageHe = "לא נמדדה ריצה — תנועה חלקה ומהירה מדי, כמו ברכב.";
   } else if (flags.includes("over_human_cap") && !stats.runningLikeMotion) {
     valid = false;
     label = "cap_no_bounce";
-    messageHe = "מהירות שיא מעל 45 קמ״ש בלי תנודות ריצה.";
+    messageHe = "לא נמדדה ריצה — מהירות מעל 45 קמ״ש בלי תנודות ריצה.";
   } else if (flags.includes("profile_violation")) {
     valid = false;
     label = "profile";
-    messageHe = "המהירות גבוהה מדי ביחס לריצות הקודמות שלך, ובלי סימני ריצה.";
+    messageHe = "לא נמדדה ריצה — המהירות חריגה ביחס לריצות הקודמות שלך ובלי סימני ריצה.";
   }
 
-  const rounded = Math.round(maxSpeedKmh * 10) / 10;
+  // Invalid sessions never surface a speed on the meter / records — show 0.
+  const rounded = valid ? Math.round(measuredPeakKmh * 10) / 10 : 0;
   const windowSec = PEAK_WINDOW_MS / 1000;
   return {
     valid,
@@ -560,8 +739,11 @@ export function analyzeRun(session = {}) {
     flags,
     maxSpeedKmh: rounded,
     maxKmh: rounded,
+    measuredPeakKmh: Math.round(measuredPeakKmh * 10) / 10,
     peakWindowMs: PEAK_WINDOW_MS,
     peakWindowSec: windowSec,
+    minRunSustainMs: MIN_RUN_SUSTAIN_MS,
+    runWindows,
     rawMaxKmh: Math.round(rawMaxKmh * 10) / 10,
     gpsMaxKmh: Math.round((peak.gpsMaxKmh || 0) * 10) / 10,
     speedSource: peak.source,
@@ -570,6 +752,8 @@ export function analyzeRun(session = {}) {
     vehicleScore,
     runningLikeMotion: stats.runningLikeMotion,
     looksLikeRunning: stats.runningLikeMotion,
+    pocketLike: !!stats.pocketLike,
+    handLike: !!stats.handLike,
     cadenceHz: stats.cadenceHz,
     bounceScore: stats.bounceScore,
     accStd: stats.accStd,
@@ -578,6 +762,8 @@ export function analyzeRun(session = {}) {
     droppedGps: gps.length - kept.length,
     motion: {
       looksLikeRunning: stats.runningLikeMotion,
+      pocketLike: !!stats.pocketLike,
+      handLike: !!stats.handLike,
       cadenceHz: stats.cadenceHz,
       bounceScore: stats.bounceScore,
     },
