@@ -253,7 +253,7 @@ export function drawStoryCard(canvas, { maxKmh, playerName, tableTitle, cheat, s
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 40px Heebo, sans-serif";
   const headline = cheat
-    ? "הריצה לא אושרה — חשד לרכב"
+    ? "לא נמדדה ריצה"
     : shareLine || `אתה יותר מהיר מ-${playerName || "הטבלה"}`;
   wrapCentered(ctx, headline, w / 2, boxY + 80, w - 240, 52);
 

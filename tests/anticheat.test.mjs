@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { analyzeRun, filterGpsPoints, buildProfile, evaluateAntiCheat } from "../js/anticheat.js";
+import {
+  analyzeRun,
+  filterGpsPoints,
+  buildProfile,
+  evaluateAntiCheat,
+  findSustainedRunWindows,
+  motionStats,
+  MIN_RUN_SUSTAIN_MS,
+} from "../js/anticheat.js";
 import { rankAgainstTable, shareMessage } from "../js/compare.js";
 import { ascendingPersonalRecords } from "../js/pr-progress.js";
 import { sampleRunning, sampleCar } from "../js/demo.js";
@@ -32,17 +40,78 @@ function sessionFromSampler(sampler, seconds = 6, hz = 25) {
 }
 
 test("running simulation is accepted", () => {
-  const analysis = analyzeRun(sessionFromSampler(sampleRunning));
+  const analysis = analyzeRun(sessionFromSampler(sampleRunning, 8));
   assert.equal(analysis.valid, true);
   assert.ok(analysis.maxSpeedKmh > 18);
   assert.ok(analysis.maxSpeedKmh < 40);
   assert.equal(analysis.runningLikeMotion, true);
+  assert.ok((analysis.runWindows || []).length >= 1);
 });
 
-test("car simulation is rejected", () => {
-  const analysis = analyzeRun(sessionFromSampler(sampleCar, 5));
+test("car simulation is rejected and shows zero speed", () => {
+  const analysis = analyzeRun(sessionFromSampler(sampleCar, 8));
   assert.equal(analysis.valid, false);
+  assert.equal(analysis.maxSpeedKmh, 0);
   assert.ok(analysis.vehicleScore >= 0.55 || analysis.rawMaxKmh > 40);
+});
+
+test("brief run under 5s is not shown as a measured peak", () => {
+  const analysis = analyzeRun(sessionFromSampler(sampleRunning, 3));
+  assert.equal(analysis.valid, false);
+  assert.equal(analysis.maxSpeedKmh, 0);
+  assert.ok(
+    analysis.flags.includes("no_run_sustain") ||
+      analysis.label === "no_run_sustain" ||
+      analysis.label === "no_speed"
+  );
+});
+
+test("pocket-like bounce is classified as running motion", () => {
+  const { motion } = sessionFromSampler(sampleRunning, 6);
+  const stats = motionStats(motion);
+  assert.equal(stats.runningLikeMotion, true);
+  assert.ok(stats.pocketLike || stats.handLike);
+});
+
+test("hand-held running tilt is accepted as run-like; chaotic wave is not", () => {
+  const t0 = 1_000_000;
+  const handRun = [];
+  for (let i = 0; i < 120; i++) {
+    const t = t0 + i * 40;
+    const tSec = i * 0.04;
+    const cadence = 2.8;
+    const bounce = 5 * Math.sin(2 * Math.PI * cadence * tSec);
+    handRun.push({
+      t,
+      accMag: 9.7 + bounce,
+      tiltBeta: 25 + 18 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 12 + 8 * Math.sin(2 * Math.PI * cadence * tSec + 0.5),
+    });
+  }
+  const handStats = motionStats(handRun);
+  assert.equal(handStats.runningLikeMotion, true);
+  assert.equal(handStats.handLike, true);
+
+  const wave = [];
+  for (let i = 0; i < 120; i++) {
+    const t = t0 + i * 40;
+    // Irregular high-frequency flailing — not a foot cadence band.
+    wave.push({
+      t,
+      accMag: 9.81 + 6 * Math.sin(2 * Math.PI * 7.5 * i * 0.04) + (i % 3) * 2,
+      tiltBeta: 40 * Math.sin(i),
+      tiltGamma: 30 * Math.cos(i * 1.7),
+    });
+  }
+  assert.equal(motionStats(wave).runningLikeMotion, false);
+});
+
+test("sustained run windows require MIN_RUN_SUSTAIN_MS", () => {
+  assert.equal(MIN_RUN_SUSTAIN_MS, 5000);
+  const session = sessionFromSampler(sampleRunning, 8);
+  const windows = findSustainedRunWindows(session.motion, session.gps);
+  assert.ok(windows.length >= 1);
+  assert.ok(windows.every((w) => w.endMs - w.startMs >= MIN_RUN_SUSTAIN_MS - 50));
 });
 
 test("GPS teleport spikes are dropped", () => {
@@ -100,18 +169,25 @@ test("cadence detector finds a 3Hz bounce", async () => {
   assert.ok(rate > 2.4 && rate < 3.6);
 });
 
-test("still phone at speed is treated as a car", () => {
+test("still phone at speed is not counted as a run", () => {
   const t0 = 1_000_000;
   const gps = [];
   const motion = [];
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 160; i++) {
     const t = t0 + i * 50;
     gps.push({ t, speedKmh: 28, accuracy: 8 });
     motion.push({ t, accMag: 9.81, tiltBeta: 2, tiltGamma: 0.4 });
   }
-  const v = analyzeRun({ gps, motion, durationMs: 4000 });
+  const v = analyzeRun({ gps, motion, durationMs: 8000 });
   assert.equal(v.valid, false);
-  assert.ok(v.flags.includes("still_phone") || v.label === "still_phone");
+  assert.equal(v.maxSpeedKmh, 0);
+  assert.ok(
+    v.flags.includes("still_phone") ||
+      v.flags.includes("no_run_sustain") ||
+      v.flags.includes("vehicle_like_motion") ||
+      v.label === "still_phone" ||
+      v.label === "no_run_sustain"
+  );
 });
 
 test("hand-waving IMU spike without GPS movement is rejected", () => {
@@ -134,8 +210,13 @@ test("hand-waving IMU spike without GPS movement is rejected", () => {
   }
   const v = analyzeRun({ gps, motion, durationMs: 3000 });
   assert.equal(v.valid, false);
-  assert.ok(v.maxSpeedKmh < 10);
-  assert.ok(v.flags.includes("imu_gps_mismatch") || v.label === "imu_gps_mismatch");
+  assert.equal(v.maxSpeedKmh, 0);
+  assert.ok(
+    v.flags.includes("imu_gps_mismatch") ||
+      v.flags.includes("no_run_sustain") ||
+      v.label === "imu_gps_mismatch" ||
+      v.label === "no_run_sustain"
+  );
 });
 
 test("official GPS peak uses rolling mean over ~1.5s window", async () => {
@@ -165,7 +246,7 @@ test("official GPS peak uses rolling mean over ~1.5s window", async () => {
   assert.ok(rolled.peakKmh < 40);
 });
 
-test("zero official peak is not an approved run", () => {
+test("zero official peak is not a measured run", () => {
   const analysis = analyzeRun({
     gps: [
       { t: 0, speedKmh: 3, accuracy: 8 },
@@ -179,8 +260,13 @@ test("zero official peak is not an approved run", () => {
     durationMs: 1200,
   });
   assert.equal(analysis.valid, false);
-  assert.ok(analysis.maxSpeedKmh < 8);
-  assert.ok(analysis.label === "no_speed" || analysis.flags.includes("no_speed"));
+  assert.equal(analysis.maxSpeedKmh, 0);
+  assert.ok(
+    analysis.label === "no_speed" ||
+      analysis.label === "no_run_sustain" ||
+      analysis.flags.includes("no_speed") ||
+      analysis.flags.includes("no_run_sustain")
+  );
 });
 
 test("live max and final max use the same official peak metric", async () => {
@@ -188,23 +274,27 @@ test("live max and final max use the same official peak metric", async () => {
   const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
   tracker.startDemo();
   const t0 = 1_000_000;
-  for (let i = 0; i < 60; i++) {
+  const cadence = 3.15;
+  for (let i = 0; i < 160; i++) {
     const t = t0 + i * 50;
+    const tSec = i * 0.05;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
     tracker.ingest({
       t,
       speedKmh: 20 + Math.sin(i / 6),
       accuracy: 6,
       lat: 32.08 + i * 0.00002,
       lng: 34.78,
-      ax: 2.2,
+      ax: 2.2 + bounce * 0.3,
       ay: 0.3,
       az: 9.81,
-      accMag: 10.2 + 2 * Math.sin(i / 3),
-      tiltBeta: 12 + 6 * Math.sin(i / 4),
-      tiltGamma: 3,
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4 + 3 * Math.sin(2 * Math.PI * cadence * tSec + 0.4),
       includesGravity: true,
     });
   }
+  assert.ok(tracker.hasDisplayableRun());
   const liveMax = tracker.liveApprovedMaxKmh(true);
   const session = tracker.stop();
   const analysis = analyzeRun(session);
@@ -213,7 +303,61 @@ test("live max and final max use the same official peak metric", async () => {
   assert.equal(session.officialPeakKmh, analysis.maxSpeedKmh);
 });
 
-test("unapproved runs are excluded from PR chart", () => {
+test("speedometer stays at zero until 5s of run-like motion", async () => {
+  const { Tracker } = await import("../js/tracker.js");
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u), { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  const cadence = 3.15;
+  for (let i = 0; i < 60; i++) {
+    const t = t0 + i * 50;
+    const tSec = i * 0.05;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
+    tracker.ingest({
+      t,
+      speedKmh: 18,
+      accuracy: 6,
+      lat: 32.08 + i * 0.00002,
+      lng: 34.78,
+      ax: 2.2,
+      ay: 0.3,
+      az: 9.81,
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4,
+      includesGravity: true,
+    });
+  }
+  // ~3 s — still below sustain gate
+  assert.equal(tracker.displaySpeedKmh(), 0);
+  assert.equal(tracker.liveApprovedMaxKmh(), 0);
+
+  for (let i = 60; i < 140; i++) {
+    const t = t0 + i * 50;
+    const tSec = i * 0.05;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
+    tracker.ingest({
+      t,
+      speedKmh: 18,
+      accuracy: 6,
+      lat: 32.08 + i * 0.00002,
+      lng: 34.78,
+      ax: 2.2,
+      ay: 0.3,
+      az: 9.81,
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4,
+      includesGravity: true,
+    });
+  }
+  assert.ok(tracker.hasDisplayableRun());
+  assert.ok(tracker.displaySpeedKmh() >= 6);
+  assert.ok(tracker.liveApprovedMaxKmh(true) >= 6);
+});
+
+test("invalid runs are excluded from PR chart", () => {
   const points = ascendingPersonalRecords([
     run({ id: "good", at: "2026-01-01T10:00:00.000Z", maxKmh: 24 }),
     run({ id: "bad", at: "2026-02-01T10:00:00.000Z", maxKmh: 40, valid: false }),

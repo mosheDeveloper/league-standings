@@ -212,7 +212,7 @@ function renderRecords() {
       key === "local" ? `ב${boards.countryLabel}` : key === "friends" ? "בין החברים" : "בעולם";
     $("records-place").textContent = `את/ה במקום ${board.place} מתוך ${board.total} ${where}. שיא: ${myBest().toFixed(1)} קמ״ש`;
   } else if (state.session) {
-    $("records-place").textContent = "עדיין אין שיא מאושר — סיימו ריצה תקינה כדי להיכנס ללוח.";
+    $("records-place").textContent = "עדיין אין שיא — סיימו ריצה של לפחות 5 שנ׳ כדי להיכנס ללוח.";
   } else {
     $("records-place").textContent = "התחברו כדי לשמור את השיא שלכם מול המדינה והעולם.";
   }
@@ -511,7 +511,7 @@ function renderAthleteCompare() {
     );
     $("compare-ladder").innerHTML = items.join("");
   } else {
-    $("compare-place").textContent = "עדיין אין שיא מאושר — הסולם מציג את המקצוענים. אחרי ריצה תקינה תופיעו כאן.";
+    $("compare-place").textContent = "עדיין אין שיא — הסולם מציג את המקצוענים. אחרי ריצה תופיעו כאן.";
     $("compare-ladder").innerHTML = athletes
       .map((ath, i) => {
         const meta = [ath.team, ath.leagueName].filter(Boolean).join(" · ");
@@ -582,7 +582,7 @@ function renderProfile() {
 }
 
 function onLive(update) {
-  // Live speed = GPS-anchored (no IMU drift). Live max = official rolling-window peak.
+  // Live speed / max only after ≥5 s of run-like motion (pocket or hand).
   $("live-speed").textContent = (update.speedKmh || 0).toFixed(1);
   $("max-speed").textContent = (update.maxKmh || 0).toFixed(1);
   $("cadence").textContent = update.motion > 8 ? "חי" : "…";
@@ -592,8 +592,16 @@ function onLive(update) {
   if (ring) ring.style.setProperty("--p", String(Math.min(1, (update.speedKmh || 0) / 36)));
   if (update.gpsError) {
     $("live-status").textContent = "אבד אות GPS — חזרו לאוויר הפתוח";
+  } else if (!update.runReady && (update.runSustainMs || 0) > 0) {
+    const left = Math.max(1, Math.ceil((5000 - (update.runSustainMs || 0)) / 1000));
+    $("live-status").textContent = `מזהים ריצה · עוד ~${left} שנ׳ למדידה`;
+  } else if (update.runReady) {
+    $("live-status").textContent =
+      update.gpsAccuracy != null
+        ? `ריצה חיה · דיוק ${Math.round(update.gpsAccuracy)} מ׳`
+        : "ריצה חיה";
   } else if (update.gpsAccuracy != null) {
-    $("live-status").textContent = `מיקום חי · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
+    $("live-status").textContent = `ממתינים לתבנית ריצה · דיוק ${Math.round(update.gpsAccuracy)} מ׳`;
   }
   // Debug: ?fusionDebug=1 logs raw GPS vs fused speed for field testing
   if (state.fusionDebug && update.fusion && (update.samples + update.motion) % 12 === 0) {
@@ -688,12 +696,15 @@ function renderResult() {
   $("result-place").textContent = `\u202A${r.comparison.place} / ${r.comparison.total}\u202C`;
   const badge = $("result-badge");
   badge.className = "pill " + (a.valid ? "ok" : "bad");
-  badge.textContent = a.valid ? "ריצה מאושרת" : "לא אושר";
+  badge.textContent = a.valid ? "ריצה" : "בלי מדידה";
   $("result-msg").textContent = a.messageHe;
-  $("share-line").textContent = a.valid ? r.share : "לא ניתן לשתף שיא לא מאושר כהישג.";
+  $("share-line").textContent = a.valid ? r.share : "אין שיא לשיתוף — רוצו לפחות 5 שנ׳ עם תבנית ריצה.";
   $("share-block").hidden = !a.valid;
   const statusEl = $("result-status");
-  if (statusEl) statusEl.textContent = a.valid ? "אושר" : "לא אושר";
+  if (statusEl) {
+    const sustainSec = Math.round((a.minRunSustainMs || 5000) / 1000);
+    statusEl.textContent = a.valid ? `≥${sustainSec} שנ׳` : "—";
+  }
 
   const athletes = r.comparison.athletes || [];
   const items = athletes.map(
@@ -831,7 +842,7 @@ function renderSpeedImproveHistory() {
       const valid = !!run.analysis?.valid;
       const excluded = !!run.excludeFromPr;
       const isRecord = recordIds.has(run.id);
-      let status = !valid ? "לא אושר" : excluded ? "הוסר מהגרף" : "אושר";
+      let status = !valid ? "בלי מדידה" : excluded ? "הוסר מהגרף" : "נמדד";
       const badge = isRecord && valid && !excluded ? `<span class="improve-event-badge">שיא</span>` : "";
       return `<li>
         <span>${new Date(run.at).toLocaleString("he-IL")}<br>
@@ -928,7 +939,7 @@ function renderImproveSections() {
     if (speedChart) {
       const points = ascendingPersonalRecords(Store.getRuns());
       if (!points.length) {
-        speedChart.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה מאושרת ראשונה תפתח את הגרף.</div>`;
+        speedChart.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה ראשונה (≥5 שנ׳) תפתח את הגרף.</div>`;
       } else {
         renderSpeedPrChart(speedChart, points);
       }
