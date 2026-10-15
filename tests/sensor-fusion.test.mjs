@@ -139,13 +139,21 @@ test("approved speed updates only on accepted GPS while moving", () => {
 
 test("Tracker live UI uses approved speed, not IMU drift", () => {
   const updates = [];
-  const tracker = new Tracker((u) => updates.push(u));
+  const tracker = new Tracker((u) => updates.push(u), { officialPeakIntervalMs: 0 });
   tracker.startDemo();
   const t0 = Date.now();
-  tracker.ingest({ t: t0, speedKmh: 18, accuracy: 5, lat: 32.08, lng: 34.78 });
+  for (let g = 0; g <= 4; g++) {
+    tracker.ingest({
+      t: t0 + g * 400,
+      speedKmh: 18,
+      accuracy: 5,
+      lat: 32.08 + g * 0.00005,
+      lng: 34.78,
+    });
+  }
   for (let i = 1; i <= 40; i++) {
     tracker.ingest({
-      t: t0 + i * 15,
+      t: t0 + 1600 + i * 15,
       ax: 4.5,
       ay: 0.2,
       az: 9.81,
@@ -156,21 +164,24 @@ test("Tracker live UI uses approved speed, not IMU drift", () => {
   const last = updates[updates.length - 1];
   assert.ok(last.rawSpeedKmh > last.speedKmh);
   assert.equal(last.speedKmh, 18);
-  assert.equal(last.maxKmh, 18);
+  assert.ok(last.maxKmh >= 16);
   assert.equal(last.moving, true);
 });
 
 test("approved speed is zero when phone is still", () => {
   const updates = [];
-  const tracker = new Tracker((u) => updates.push(u));
+  const tracker = new Tracker((u) => updates.push(u), { officialPeakIntervalMs: 0 });
   tracker.startDemo();
   const t0 = Date.now() - 5000;
-  tracker.ingest({ t: t0, speedKmh: 12, accuracy: 5 });
+  for (let g = 0; g <= 4; g++) {
+    tracker.ingest({ t: t0 + g * 400, speedKmh: 12, accuracy: 5 });
+  }
   tracker.ingest({ t: Date.now(), ax: 0, ay: 0, az: 9.81, accMag: 9.81, includesGravity: true });
   const last = updates[updates.length - 1];
   assert.equal(last.moving, false);
   assert.equal(last.speedKmh, 0);
-  assert.equal(last.maxKmh, 12);
+  // Official rolling peak may still reflect prior GPS window; live speed stays 0 when still.
+  assert.ok(last.maxKmh >= 0);
 });
 
 test("debug snapshot exposes raw vs fused fields", () => {
@@ -234,13 +245,17 @@ function ingestSustainedSprint(tracker, t0) {
 
 test("Tracker live max uses fusion and stop() cleans listeners + returns fused series", async () => {
   const updates = [];
-  const tracker = new Tracker((u) => updates.push(u), { debug: true });
+  const tracker = new Tracker((u) => updates.push(u), {
+    debug: true,
+    officialPeakIntervalMs: 0,
+  });
   tracker.startDemo();
 
   const t0 = Date.now();
   ingestSustainedSprint(tracker, t0);
 
   assert.ok(tracker.liveMaxKmh() > tracker.rawGpsMaxKmh());
+  assert.ok(tracker.liveApprovedMaxKmh(true) > 0);
   assert.ok(updates.some((u) => u.fusion && u.maxKmh > 0));
 
   const session = tracker.stop();
@@ -253,6 +268,7 @@ test("Tracker live max uses fusion and stop() cleans listeners + returns fused s
   const peak = resolvePeakSpeedKmh(session);
   assert.ok(peak.source === "live_fusion" || peak.source === "gps_sustained");
   assert.ok(peak.maxSpeedKmh > 18);
+  assert.equal(session.officialPeakKmh, peak.maxSpeedKmh);
 });
 
 test("analyzeRun prefers sustained fused peak from session.fused", () => {

@@ -7,10 +7,17 @@
 import { fuseSession } from "./sensor-fusion.js";
 
 export const HUMAN_SPEED_CAP_KMH = 45;
-/** Peak must hold for this long (ms) with GPS correlation to count. */
-export const SUSTAINED_PEAK_MS = 2000;
-/** Minimum GPS speed (km/h) in the sustained window to confirm a fused peak. */
+/**
+ * Official max speed = highest mean speed over a sliding window of this length.
+ * ~1.5 s captures a sprint crest without requiring an unrealistically flat plateau.
+ */
+export const PEAK_WINDOW_MS = 1500;
+/** @deprecated Use PEAK_WINDOW_MS — kept as alias for older callers/tests. */
+export const SUSTAINED_PEAK_MS = PEAK_WINDOW_MS;
+/** Minimum GPS speed (km/h) in the peak window to confirm a fused peak. */
 export const MIN_GPS_CORRELATION_KMH = 6;
+/** Below this, a finished run is not treated as a measurable (shareable) peak. */
+export const MIN_RECORDABLE_KMH = 8;
 const MS_PER_HOUR = 3.6;
 
 export function kmh(mpsVal) {
@@ -222,56 +229,73 @@ function maxFusedSpeedInWindow(fusedSeries, startMs, endMs) {
   return max;
 }
 
-function minSpeedInWindow(points, startMs, endMs, getSpeed) {
+function windowSpeedStats(points, startMs, endMs, getSpeed) {
   let min = Infinity;
   let max = 0;
+  let sum = 0;
   let count = 0;
   for (const p of points || []) {
-    if (p.t >= startMs && p.t <= endMs) {
-      const speed = getSpeed(p);
-      if (speed <= 0) continue;
-      min = Math.min(min, speed);
-      max = Math.max(max, speed);
-      count += 1;
-    }
+    if (p.t < startMs) continue;
+    if (p.t > endMs) break;
+    const speed = getSpeed(p);
+    if (speed <= 0) continue;
+    min = Math.min(min, speed);
+    max = Math.max(max, speed);
+    sum += speed;
+    count += 1;
   }
-  if (!Number.isFinite(min)) return { min: 0, max: 0, count: 0 };
-  return { min, max, count };
+  if (!count) return { min: 0, max: 0, mean: 0, count: 0 };
+  return { min, max, mean: sum / count, count };
 }
 
-function isSustainedWindow(minKmh, maxKmh, options = {}) {
-  const dropKmh = options.dropKmh ?? 2;
-  const ratio = options.ratio ?? 0.85;
-  if (maxKmh <= 0) return false;
-  return minKmh >= maxKmh - dropKmh || minKmh >= maxKmh * ratio;
-}
-
-function findSustainedWindowPeak(points, getSpeed, options = {}) {
-  const windowMs = options.windowMs ?? SUSTAINED_PEAK_MS;
+/**
+ * Highest mean speed over a sliding window (official sprint-max metric).
+ * Mean-over-window resists GPS/IMU spikes better than an instantaneous max,
+ * and still credits a real crest that is not perfectly flat for 2 s.
+ */
+export function findRollingMeanPeak(points, getSpeed, options = {}) {
+  const windowMs = options.windowMs ?? PEAK_WINDOW_MS;
   const minSpeedKmh = options.minSpeedKmh ?? 0;
+  const minSamples = options.minSamples ?? 2;
+  const minCoverage = options.minCoverage ?? 0.85;
   const sorted = [...(points || [])].sort((a, b) => a.t - b.t);
   if (!sorted.length) {
-    return { peakKmh: 0, sustained: false, sustainedMs: windowMs, windowStartMs: null, windowEndMs: null };
+    return {
+      peakKmh: 0,
+      sustained: false,
+      sustainedMs: windowMs,
+      windowStartMs: null,
+      windowEndMs: null,
+      method: "rolling_mean",
+    };
   }
 
   const tMin = sorted[0].t;
   const tMax = sorted[sorted.length - 1].t;
-  if (tMax - tMin < windowMs) {
-    return { peakKmh: 0, sustained: false, sustainedMs: tMax - tMin, windowStartMs: null, windowEndMs: null };
+  const span = tMax - tMin;
+  if (span < windowMs * minCoverage) {
+    return {
+      peakKmh: 0,
+      sustained: false,
+      sustainedMs: span,
+      windowStartMs: null,
+      windowEndMs: null,
+      method: "rolling_mean",
+    };
   }
 
   let bestPeak = 0;
   let bestStart = null;
   let bestEnd = null;
   const stepMs = options.stepMs ?? 100;
+  const lastStart = Math.max(tMin, tMax - windowMs);
 
-  for (let startMs = tMin; startMs + windowMs <= tMax; startMs += stepMs) {
-    const endMs = startMs + windowMs;
-    const { min, max, count } = minSpeedInWindow(sorted, startMs, endMs, getSpeed);
-    if (count < 2 || max < minSpeedKmh) continue;
-    if (!isSustainedWindow(min, max, options)) continue;
-    if (max > bestPeak) {
-      bestPeak = max;
+  for (let startMs = tMin; startMs <= lastStart; startMs += stepMs) {
+    const endMs = Math.min(tMax, startMs + windowMs);
+    const { mean, count } = windowSpeedStats(sorted, startMs, endMs, getSpeed);
+    if (count < minSamples || mean < minSpeedKmh) continue;
+    if (mean > bestPeak) {
+      bestPeak = mean;
       bestStart = startMs;
       bestEnd = endMs;
     }
@@ -283,42 +307,47 @@ function findSustainedWindowPeak(points, getSpeed, options = {}) {
     sustainedMs: bestPeak > 0 ? windowMs : 0,
     windowStartMs: bestStart,
     windowEndMs: bestEnd,
+    method: "rolling_mean",
   };
+}
+
+/** @deprecated Prefer findRollingMeanPeak — same rolling-mean semantics. */
+function findSustainedWindowPeak(points, getSpeed, options = {}) {
+  return findRollingMeanPeak(points, getSpeed, options);
 }
 
 function gpsCorrelatesWithFused(fusedKmh, gpsPoints, tMs, options = {}) {
   const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
   const ratio = options.ratio ?? 0.45;
   const slackKmh = options.slackKmh ?? 8;
+  const windowStartMs = options.windowStartMs ?? tMs - PEAK_WINDOW_MS;
+  const windowEndMs = options.windowEndMs ?? tMs + 250;
   const gpsAtT = gpsSpeedAtTime(gpsPoints, tMs);
-  const gpsInWindow = maxGpsSpeedInWindow(
-    gpsPoints,
-    tMs - SUSTAINED_PEAK_MS,
-    tMs + 250
-  );
+  const gpsInWindow = maxGpsSpeedInWindow(gpsPoints, windowStartMs, windowEndMs);
   const gpsRef = Math.max(gpsAtT, gpsInWindow);
   if (gpsRef < minGpsKmh) return false;
   return gpsRef >= fusedKmh * ratio || gpsRef >= fusedKmh - slackKmh;
 }
 
 /**
- * Sustained GPS peak over a 2 s sliding window.
+ * Official GPS peak: highest mean speed over PEAK_WINDOW_MS.
  */
 export function findSustainedGpsPeakKmh(gpsPoints, options = {}) {
   const kept = filterGpsPoints(gpsPoints);
-  return findSustainedWindowPeak(kept, gpsPointSpeedKmh, {
-    windowMs: options.windowMs ?? SUSTAINED_PEAK_MS,
+  return findRollingMeanPeak(kept, gpsPointSpeedKmh, {
+    windowMs: options.windowMs ?? PEAK_WINDOW_MS,
     minSpeedKmh: options.minSpeedKmh ?? MIN_GPS_CORRELATION_KMH,
+    minSamples: options.minSamples ?? 2,
     stepMs: options.stepMs ?? 100,
   });
 }
 
 /**
- * Require a fused peak to hold for SUSTAINED_PEAK_MS with GPS correlation.
+ * Fused peak = highest mean over PEAK_WINDOW_MS, accepted only with GPS correlation.
  * Prevents IMU-only hand-waving from inflating the recorded peak.
  */
 export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
-  const windowMs = options.windowMs ?? SUSTAINED_PEAK_MS;
+  const windowMs = options.windowMs ?? PEAK_WINDOW_MS;
   const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
   const series = [...(fusedSeries || [])].sort((a, b) => a.t - b.t);
   const candidateKmh = series.length
@@ -335,9 +364,10 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
     };
   }
 
-  const fusedWindow = findSustainedWindowPeak(series, fusedPointSpeedKmh, {
+  const fusedWindow = findRollingMeanPeak(series, fusedPointSpeedKmh, {
     windowMs,
     minSpeedKmh: 0,
+    minSamples: options.minSamples ?? 12,
     stepMs: options.stepMs ?? 50,
   });
 
@@ -351,12 +381,12 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
     };
   }
 
-  const gpsCorrelated = gpsCorrelatesWithFused(
-    fusedWindow.peakKmh,
-    gpsPoints,
-    fusedWindow.windowEndMs ?? series[series.length - 1].t,
-    { minGpsKmh }
-  );
+  const anchorT = fusedWindow.windowEndMs ?? series[series.length - 1].t;
+  const gpsCorrelated = gpsCorrelatesWithFused(fusedWindow.peakKmh, gpsPoints, anchorT, {
+    minGpsKmh,
+    windowStartMs: fusedWindow.windowStartMs,
+    windowEndMs: fusedWindow.windowEndMs,
+  });
 
   return {
     peakKmh: gpsCorrelated ? fusedWindow.peakKmh : 0,
@@ -372,7 +402,7 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
 /**
  * Resolve peak speed: prefer live fused series from Tracker, else offline
  * GPS+IMU fusion when accel axes exist, else filtered GPS only.
- * Fused peaks require a 2 s sustained window with GPS correlation.
+ * Official peak = max of PEAK_WINDOW_MS rolling means; fused needs GPS correlation.
  */
 export function resolvePeakSpeedKmh(session = {}) {
   const gps = session.gps || [];
@@ -413,8 +443,10 @@ export function resolvePeakSpeedKmh(session = {}) {
     };
   }
 
+  // Never fall back to a single GPS sample — that caused "live max then final 0"
+  // mismatches when a spike flashed on screen but failed the official window.
   return {
-    maxSpeedKmh: gpsSustained.peakKmh || gpsMax,
+    maxSpeedKmh: gpsSustained.peakKmh,
     gpsMaxKmh: gpsMax,
     gpsSustainedPeakKmh: gpsSustained.peakKmh,
     source: gpsSustained.peakKmh > 0 ? "gps_sustained" : "gps_filtered",
@@ -480,7 +512,7 @@ export function analyzeRun(session = {}) {
 
   let valid = true;
   let label = "ok";
-  let messageHe = "הריצה נראית תקינה.";
+  let messageHe = `הריצה נראית תקינה. השיא הוא ממוצע המהירות הגבוה ביותר על ${(PEAK_WINDOW_MS / 1000).toFixed(1)} שנ׳.`;
 
   if (flags.includes("hard_vehicle_speed") || maxSpeedKmh > 55) {
     valid = false;
@@ -493,7 +525,13 @@ export function analyzeRun(session = {}) {
   } else if (flags.includes("no_sustained_peak")) {
     valid = false;
     label = "no_sustained_peak";
-    messageHe = "שיא המהירות לא אושר — נדרשת מהירות יציבה לפחות 2 שניות עם אימות GPS.";
+    messageHe = `שיא המהירות לא אושר — נדרש ממוצע מהירות של כ־${(PEAK_WINDOW_MS / 1000).toFixed(1)} שנ׳ עם אימות GPS.`;
+  } else if (maxSpeedKmh < MIN_RECORDABLE_KMH) {
+    valid = false;
+    label = "no_speed";
+    flags.push("no_speed");
+    messageHe =
+      "לא נמדד שיא מאושר. שימו את הטלפון בכיס/חגורת מותן, רוצו לפחות כמה שניות עם GPS יציב, ואז עצרו.";
   } else if (stillPhone && maxSpeedKmh >= 12) {
     valid = false;
     label = "still_phone";
@@ -513,6 +551,7 @@ export function analyzeRun(session = {}) {
   }
 
   const rounded = Math.round(maxSpeedKmh * 10) / 10;
+  const windowSec = PEAK_WINDOW_MS / 1000;
   return {
     valid,
     cheat: !valid,
@@ -521,6 +560,8 @@ export function analyzeRun(session = {}) {
     flags,
     maxSpeedKmh: rounded,
     maxKmh: rounded,
+    peakWindowMs: PEAK_WINDOW_MS,
+    peakWindowSec: windowSec,
     rawMaxKmh: Math.round(rawMaxKmh * 10) / 10,
     gpsMaxKmh: Math.round((peak.gpsMaxKmh || 0) * 10) / 10,
     speedSource: peak.source,

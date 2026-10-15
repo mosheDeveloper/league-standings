@@ -3,6 +3,7 @@ import {
   haversineMeters,
   fuseSession,
 } from "./sensor-fusion.js";
+import { resolvePeakSpeedKmh } from "./anticheat.js";
 
 export class Tracker {
   constructor(onUpdate, options = {}) {
@@ -10,6 +11,8 @@ export class Tracker {
     this.debug = !!options.debug;
     /** Target IMU processing rate (Hz); DeviceMotion may fire faster. */
     this._imuMinIntervalMs = 1000 / (options.imuHz ?? 75);
+    /** How often to recompute the official rolling-window peak for live UI. */
+    this._officialPeakIntervalMs = options.officialPeakIntervalMs ?? 250;
     this.reset();
   }
 
@@ -29,6 +32,9 @@ export class Tracker {
     this._lastImuProcessT = 0;
     this._lastMovingAt = 0;
     this._listenersAttached = false;
+    this._cachedOfficialPeakKmh = 0;
+    this._lastOfficialPeakAt = 0;
+    this._peakCacheGpsLen = -1;
   }
 
   /** True when recent IMU activity suggests the phone is being carried while moving. */
@@ -41,8 +47,32 @@ export class Tracker {
     return this.fusion.approvedSpeedKmh();
   }
 
-  liveApprovedMaxKmh() {
-    return this.fusion.peakApprovedKmh();
+  /**
+   * Live "שיא" must match the post-run official metric (rolling-window mean),
+   * not an instantaneous GPS flash — that mismatch produced final results of 0.
+   * Recompute on every new GPS fix; throttle only between IMU-only updates.
+   */
+  liveApprovedMaxKmh(force = false) {
+    const now = Date.now();
+    const gpsLen = this.gps.length;
+    const gpsChanged = gpsLen !== this._peakCacheGpsLen;
+    if (
+      !force &&
+      !gpsChanged &&
+      this._lastOfficialPeakAt > 0 &&
+      now - this._lastOfficialPeakAt < this._officialPeakIntervalMs
+    ) {
+      return this._cachedOfficialPeakKmh;
+    }
+    const peak = resolvePeakSpeedKmh({
+      gps: this.gps,
+      motion: this.motion,
+      fused: this.fusion.fusedSeries(),
+    });
+    this._cachedOfficialPeakKmh = peak.maxSpeedKmh || 0;
+    this._lastOfficialPeakAt = now;
+    this._peakCacheGpsLen = gpsLen;
+    return this._cachedOfficialPeakKmh;
   }
 
   currentSpeedKmh() {
@@ -299,13 +329,23 @@ export class Tracker {
     }
     this._detachSensors();
     const durationMs = Date.now() - this.startedAt;
+    const fused = this.fusion.fusedSeries();
+    const officialPeak = resolvePeakSpeedKmh({
+      gps: this.gps,
+      motion: this.motion,
+      fused,
+      fusionDebug: this.getFusionDebug(),
+    });
+    this._cachedOfficialPeakKmh = officialPeak.maxSpeedKmh || 0;
     return {
       gps: this.gps.slice(),
       motion: this.motion.slice(),
-      fused: this.fusion.fusedSeries(),
+      fused,
       fusionDebug: this.getFusionDebug(),
       durationMs,
       startedAt: this.startedAt,
+      officialPeakKmh: this._cachedOfficialPeakKmh,
+      officialPeak,
     };
   }
 }
