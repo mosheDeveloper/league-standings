@@ -138,8 +138,10 @@ test("hand-waving IMU spike without GPS movement is rejected", () => {
   assert.ok(v.flags.includes("imu_gps_mismatch") || v.label === "imu_gps_mismatch");
 });
 
-test("sustained GPS peak requires a stable 2 second window", async () => {
-  const { findSustainedGpsPeakKmh } = await import("../js/anticheat.js");
+test("official GPS peak uses rolling mean over ~1.5s window", async () => {
+  const { findSustainedGpsPeakKmh, findRollingMeanPeak, PEAK_WINDOW_MS } =
+    await import("../js/anticheat.js");
+  assert.equal(PEAK_WINDOW_MS, 1500);
   const t0 = 1_000_000;
   const gps = [];
   for (let i = 0; i < 80; i++) {
@@ -148,6 +150,67 @@ test("sustained GPS peak requires a stable 2 second window", async () => {
   const sustained = findSustainedGpsPeakKmh(gps);
   assert.ok(sustained.peakKmh >= 22);
   assert.equal(sustained.sustained, true);
+  assert.equal(sustained.method, "rolling_mean");
+
+  // A brief spike must not become the official peak
+  const spiked = [
+    ...gps,
+    { t: t0 + 4000, speedKmh: 55, accuracy: 6, lat: 32.08, lng: 34.78 },
+    { t: t0 + 4050, speedKmh: 12, accuracy: 6, lat: 32.08, lng: 34.78 },
+  ];
+  const rolled = findRollingMeanPeak(spiked, (p) => p.speedKmh, {
+    windowMs: PEAK_WINDOW_MS,
+    minSpeedKmh: 6,
+  });
+  assert.ok(rolled.peakKmh < 40);
+});
+
+test("zero official peak is not an approved run", () => {
+  const analysis = analyzeRun({
+    gps: [
+      { t: 0, speedKmh: 3, accuracy: 8 },
+      { t: 1000, speedKmh: 4, accuracy: 8 },
+    ],
+    motion: [
+      { t: 0, accMag: 10.2, tiltBeta: 8, tiltGamma: 2 },
+      { t: 500, accMag: 11.1, tiltBeta: 10, tiltGamma: 3 },
+      { t: 1000, accMag: 10.4, tiltBeta: 7, tiltGamma: 2 },
+    ],
+    durationMs: 1200,
+  });
+  assert.equal(analysis.valid, false);
+  assert.ok(analysis.maxSpeedKmh < 8);
+  assert.ok(analysis.label === "no_speed" || analysis.flags.includes("no_speed"));
+});
+
+test("live max and final max use the same official peak metric", async () => {
+  const { Tracker } = await import("../js/tracker.js");
+  const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  for (let i = 0; i < 60; i++) {
+    const t = t0 + i * 50;
+    tracker.ingest({
+      t,
+      speedKmh: 20 + Math.sin(i / 6),
+      accuracy: 6,
+      lat: 32.08 + i * 0.00002,
+      lng: 34.78,
+      ax: 2.2,
+      ay: 0.3,
+      az: 9.81,
+      accMag: 10.2 + 2 * Math.sin(i / 3),
+      tiltBeta: 12 + 6 * Math.sin(i / 4),
+      tiltGamma: 3,
+      includesGravity: true,
+    });
+  }
+  const liveMax = tracker.liveApprovedMaxKmh(true);
+  const session = tracker.stop();
+  const analysis = analyzeRun(session);
+  assert.ok(liveMax > 8);
+  assert.equal(analysis.maxSpeedKmh, liveMax);
+  assert.equal(session.officialPeakKmh, analysis.maxSpeedKmh);
 });
 
 test("unapproved runs are excluded from PR chart", () => {

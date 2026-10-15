@@ -108,6 +108,31 @@ h1, .page-title {
 }
 .go-hint { color: var(--dim); margin: 14px 0 0; font-size: 13px; }
 
+.placement-help {
+  margin-top: 14px;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.placement-help summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink);
+  list-style: none;
+}
+.placement-help summary::-webkit-details-marker { display: none; }
+.placement-help summary::before {
+  content: "› ";
+  display: inline-block;
+  transition: transform .15s ease;
+}
+.placement-help[open] summary::before { transform: rotate(90deg); }
+.placement-help ul {
+  margin: 8px 0 0;
+  padding: 0 1.1em 0 0;
+}
+.placement-help li { margin: 4px 0; }
+
 .gps-status {
   margin-top: 18px;
   background: rgba(255,255,255,.05);

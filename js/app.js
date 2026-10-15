@@ -582,7 +582,7 @@ function renderProfile() {
 }
 
 function onLive(update) {
-  // speedKmh / maxKmh are GPS-approved values only (no IMU drift between fixes).
+  // Live speed = GPS-anchored (no IMU drift). Live max = official rolling-window peak.
   $("live-speed").textContent = (update.speedKmh || 0).toFixed(1);
   $("max-speed").textContent = (update.maxKmh || 0).toFixed(1);
   $("cadence").textContent = update.motion > 8 ? "חי" : "…";

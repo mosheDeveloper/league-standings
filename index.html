@@ -37,15 +37,24 @@
         </div>
       </header>
 
-      <p class="hint home-lead">מדדו מהירות ריצה, ואז השוו מול מקצוענים במסך <strong>מקצוענים</strong>.</p>
+      <p class="hint home-lead">מדדו את <strong>שיא המהירות</strong> (ממוצע על ~1.5 שנ׳), ואז השוו מול מקצוענים.</p>
       <select id="table-select" class="sr-only" aria-hidden="true" tabindex="-1"></select>
 
       <div class="go">
         <button type="button" class="go-btn" id="btn-start" disabled>
           <span>התחל</span>
         </button>
-        <p class="go-hint">לחצו ורוצו. הטלפון בכיס.</p>
+        <p class="go-hint">הטלפון בכיס המכנסיים או בחגורת מותן — לא ביד.</p>
       </div>
+
+      <details class="placement-help">
+        <summary>איפה לשים את הטלפון?</summary>
+        <ul>
+          <li><strong>מומלץ:</strong> כיס מכנסיים צמוד או חגורת מותן</li>
+          <li><strong>אפשרי:</strong> רצועת זרוע צמודה</li>
+          <li><strong>לא:</strong> ביד, בתיק רופף, או ברכב — זה נחסם כרמאות</li>
+        </ul>
+      </details>
 
       <div class="gps-status" id="gps-status" data-state="checking">
         <span class="gps-dot" aria-hidden="true"></span>
@@ -64,7 +73,7 @@
         </div>
       </div>
       <div class="stats">
-        <div><em>שיא</em><b id="max-speed">0.0</b></div>
+        <div><em>שיא מאושר</em><b id="max-speed">0.0</b></div>
         <div><em>זמן</em><b id="live-time">00:00</b></div>
         <div><em>צעדים</em><b id="cadence">—</b></div>
       </div>
@@ -75,7 +84,7 @@
       <div class="result-hero">
         <span class="pill ok" id="result-badge">אושר</span>
         <div class="num" id="result-speed">0.0</div>
-        <p class="unit">קמ״ש מקסימום</p>
+        <p class="unit">קמ״ש שיא (ממוצע ~1.5 שנ׳)</p>
         <p class="result-copy" id="result-msg"></p>
         <div class="stats two">
           <div><em>מקום</em><b id="result-place">—</b></div>
