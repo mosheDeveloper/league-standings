@@ -24,6 +24,12 @@ export const MIN_RECORDABLE_KMH = 8;
  * Straight sprints ≈ 1.0; short F/B shuttles inside the window stay low.
  */
 export const MIN_PATH_PROGRESS = 0.4;
+/**
+ * Fused official peak may exceed GPS in the same window by at most this much.
+ * Lets fusion recover brief GPS under-sampling, but stops arm-swing (phone in hand
+ * while running) from minting a much higher “hand speed” than ground speed.
+ */
+export const FUSION_HEADROOM_KMH = 3;
 const MS_PER_HOUR = 3.6;
 
 export function kmh(mpsVal) {
@@ -365,17 +371,21 @@ function findSustainedWindowPeak(points, getSpeed, options = {}) {
   return findRollingMeanPeak(points, getSpeed, options);
 }
 
-function gpsCorrelatesWithFused(fusedKmh, gpsPoints, tMs, options = {}) {
-  const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
-  const ratio = options.ratio ?? 0.45;
-  const slackKmh = options.slackKmh ?? 8;
+function gpsReferenceInWindow(gpsPoints, tMs, options = {}) {
   const windowStartMs = options.windowStartMs ?? tMs - PEAK_WINDOW_MS;
   const windowEndMs = options.windowEndMs ?? tMs + 250;
   const gpsAtT = gpsSpeedAtTime(gpsPoints, tMs);
   const gpsInWindow = maxGpsSpeedInWindow(gpsPoints, windowStartMs, windowEndMs);
-  const gpsRef = Math.max(gpsAtT, gpsInWindow);
+  return Math.max(gpsAtT, gpsInWindow);
+}
+
+function gpsCorrelatesWithFused(fusedKmh, gpsPoints, tMs, options = {}) {
+  const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
+  const headroom = options.headroomKmh ?? FUSION_HEADROOM_KMH;
+  // After clamping, correlation means “GPS saw real movement near this peak”.
+  const gpsRef = gpsReferenceInWindow(gpsPoints, tMs, options);
   if (gpsRef < minGpsKmh) return false;
-  return gpsRef >= fusedKmh * ratio || gpsRef >= fusedKmh - slackKmh;
+  return fusedKmh <= gpsRef + headroom + 0.05 || gpsRef >= fusedKmh * 0.7;
 }
 
 /**
@@ -437,8 +447,17 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
   }
 
   const anchorT = fusedWindow.windowEndMs ?? series[series.length - 1].t;
-  const gpsCorrelated = gpsCorrelatesWithFused(fusedWindow.peakKmh, gpsPoints, anchorT, {
+  const headroom = options.headroomKmh ?? FUSION_HEADROOM_KMH;
+  const gpsRef = gpsReferenceInWindow(gpsPoints, anchorT, {
+    windowStartMs: fusedWindow.windowStartMs,
+    windowEndMs: fusedWindow.windowEndMs,
+  });
+  // Cap hand/IMU inflation: record at most GPS + headroom in the same window.
+  const cappedPeakKmh =
+    Math.round(Math.min(fusedWindow.peakKmh, gpsRef > 0 ? gpsRef + headroom : fusedWindow.peakKmh) * 10) / 10;
+  const gpsCorrelated = gpsCorrelatesWithFused(cappedPeakKmh, gpsPoints, anchorT, {
     minGpsKmh,
+    headroomKmh: headroom,
     windowStartMs: fusedWindow.windowStartMs,
     windowEndMs: fusedWindow.windowEndMs,
   });
@@ -447,17 +466,19 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
     gpsPoints,
     fusedWindow.windowStartMs,
     fusedWindow.windowEndMs,
-    fusedWindow.peakKmh
+    cappedPeakKmh
   );
   const pathProgressOk = !pathInfo || pathInfo.progress >= minPathProgress;
 
   return {
-    peakKmh: gpsCorrelated && pathProgressOk ? fusedWindow.peakKmh : 0,
+    peakKmh: gpsCorrelated && pathProgressOk ? cappedPeakKmh : 0,
     sustained: true,
     sustainedMs: fusedWindow.sustainedMs,
     gpsCorrelated,
     pathProgressOk,
     pathProgress: pathInfo,
+    gpsRefKmh: Math.round(gpsRef * 10) / 10,
+    uncappedPeakKmh: fusedWindow.peakKmh,
     candidateKmh: Math.round(candidateKmh * 10) / 10,
     windowStartMs: fusedWindow.windowStartMs,
     windowEndMs: fusedWindow.windowEndMs,

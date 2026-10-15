@@ -152,6 +152,51 @@ test("rapid forward/back rocking without net progress is rejected", () => {
   assert.ok(v.flags.includes("oscillating_path") || v.label === "oscillating_path" || v.label === "no_speed");
 });
 
+test("phone-in-hand arm swing cannot far exceed GPS ground speed", async () => {
+  const { Tracker } = await import("../js/tracker.js");
+  const { FUSION_HEADROOM_KMH } = await import("../js/anticheat.js");
+  const bodyKmh = 20;
+  const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  const mPerDeg = 111320;
+  const hz = 50;
+  let x = 0;
+  for (let i = 0; i < 5 * hz; i++) {
+    const tSec = i / hz;
+    const t = t0 + i * (1000 / hz);
+    const arm = 8 * Math.max(0, Math.sin(2 * Math.PI * 3.2 * tSec));
+    const bounce = 2.5 * Math.sin(2 * Math.PI * 3.0 * tSec);
+    x += (bodyKmh / 3.6) / hz;
+    if (i % hz === 0) {
+      tracker.ingest({
+        t,
+        speedKmh: bodyKmh,
+        accuracy: 6,
+        lat: 32.08 + x / mPerDeg,
+        lng: 34.78,
+      });
+    }
+    tracker.ingest({
+      t,
+      ax: 1.2 + arm,
+      ay: 0.4,
+      az: 9.81,
+      accMag: 9.9 + bounce + arm * 0.4,
+      tiltBeta: 35 + 40 * Math.sin(2 * Math.PI * 3.2 * tSec),
+      tiltGamma: 15,
+      includesGravity: true,
+    });
+  }
+  const session = tracker.stop();
+  const v = analyzeRun(session);
+  assert.equal(v.valid, true);
+  assert.ok(v.maxSpeedKmh <= bodyKmh + FUSION_HEADROOM_KMH + 0.6);
+  assert.ok(v.maxSpeedKmh >= bodyKmh - 2);
+  // Uncapped fusion would have been much higher; official stays near GPS.
+  assert.ok((v.sustainedPeak?.uncappedPeakKmh || 0) >= v.maxSpeedKmh - 0.05);
+});
+
 test("straight sprint with net progress is still accepted", () => {
   const t0 = 1_000_000;
   const gps = [];
