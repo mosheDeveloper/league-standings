@@ -4,7 +4,7 @@
  * Peak speed prefers GPS+IMU sensor fusion when inertial axes are present.
  */
 
-import { fuseSession } from "./sensor-fusion.js";
+import { fuseSession, haversineMeters } from "./sensor-fusion.js";
 
 export const HUMAN_SPEED_CAP_KMH = 45;
 /**
@@ -18,6 +18,18 @@ export const SUSTAINED_PEAK_MS = PEAK_WINDOW_MS;
 export const MIN_GPS_CORRELATION_KMH = 6;
 /** Below this, a finished run is not treated as a measurable (shareable) peak. */
 export const MIN_RECORDABLE_KMH = 8;
+/**
+ * Net displacement / (mean_speed × window) must clear this to count a peak.
+ * Blocks rapid forward/back rocking that inflates |speed| with almost no progress.
+ * Straight sprints ≈ 1.0; short F/B shuttles inside the window stay low.
+ */
+export const MIN_PATH_PROGRESS = 0.4;
+/**
+ * Fused official peak may exceed GPS in the same window by at most this much.
+ * Lets fusion recover brief GPS under-sampling, but stops arm-swing (phone in hand
+ * while running) from minting a much higher “hand speed” than ground speed.
+ */
+export const FUSION_HEADROOM_KMH = 3;
 const MS_PER_HOUR = 3.6;
 
 export function kmh(mpsVal) {
@@ -249,15 +261,47 @@ function windowSpeedStats(points, startMs, endMs, getSpeed) {
 }
 
 /**
+ * Path progress in a time window: netDisplacement / (meanSpeed × duration).
+ * Returns null when fewer than 2 coordinate samples (skip the check).
+ */
+export function windowPathProgress(points, startMs, endMs, meanKmh) {
+  const pts = [];
+  for (const p of points || []) {
+    if (p.t < startMs || p.t > endMs) continue;
+    const lat = p.lat;
+    const lng = p.lng ?? p.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    pts.push({ lat, lng });
+  }
+  if (pts.length < 2 || !(meanKmh > 0)) return null;
+  const net = haversineMeters(
+    pts[0].lat,
+    pts[0].lng,
+    pts[pts.length - 1].lat,
+    pts[pts.length - 1].lng
+  );
+  const expectedM = (meanKmh / 3.6) * Math.max(0.001, (endMs - startMs) / 1000);
+  if (expectedM <= 0) return null;
+  return {
+    netM: net,
+    expectedM,
+    progress: net / expectedM,
+  };
+}
+
+/**
  * Highest mean speed over a sliding window (official sprint-max metric).
  * Mean-over-window resists GPS/IMU spikes better than an instantaneous max,
  * and still credits a real crest that is not perfectly flat for 2 s.
+ * Optional path-progress filter rejects forward/back rocking with no net travel.
  */
 export function findRollingMeanPeak(points, getSpeed, options = {}) {
   const windowMs = options.windowMs ?? PEAK_WINDOW_MS;
   const minSpeedKmh = options.minSpeedKmh ?? 0;
   const minSamples = options.minSamples ?? 2;
   const minCoverage = options.minCoverage ?? 0.85;
+  const requirePathProgress = options.requirePathProgress === true;
+  const minPathProgress = options.minPathProgress ?? MIN_PATH_PROGRESS;
   const sorted = [...(points || [])].sort((a, b) => a.t - b.t);
   if (!sorted.length) {
     return {
@@ -267,6 +311,7 @@ export function findRollingMeanPeak(points, getSpeed, options = {}) {
       windowStartMs: null,
       windowEndMs: null,
       method: "rolling_mean",
+      pathProgress: null,
     };
   }
 
@@ -281,12 +326,14 @@ export function findRollingMeanPeak(points, getSpeed, options = {}) {
       windowStartMs: null,
       windowEndMs: null,
       method: "rolling_mean",
+      pathProgress: null,
     };
   }
 
   let bestPeak = 0;
   let bestStart = null;
   let bestEnd = null;
+  let bestProgress = null;
   const stepMs = options.stepMs ?? 100;
   const lastStart = Math.max(tMin, tMax - windowMs);
 
@@ -294,10 +341,17 @@ export function findRollingMeanPeak(points, getSpeed, options = {}) {
     const endMs = Math.min(tMax, startMs + windowMs);
     const { mean, count } = windowSpeedStats(sorted, startMs, endMs, getSpeed);
     if (count < minSamples || mean < minSpeedKmh) continue;
+    let progressInfo = null;
+    if (requirePathProgress) {
+      progressInfo = windowPathProgress(sorted, startMs, endMs, mean);
+      // Only enforce when coordinates exist in the window.
+      if (progressInfo && progressInfo.progress < minPathProgress) continue;
+    }
     if (mean > bestPeak) {
       bestPeak = mean;
       bestStart = startMs;
       bestEnd = endMs;
+      bestProgress = progressInfo;
     }
   }
 
@@ -308,6 +362,7 @@ export function findRollingMeanPeak(points, getSpeed, options = {}) {
     windowStartMs: bestStart,
     windowEndMs: bestEnd,
     method: "rolling_mean",
+    pathProgress: bestProgress,
   };
 }
 
@@ -316,21 +371,26 @@ function findSustainedWindowPeak(points, getSpeed, options = {}) {
   return findRollingMeanPeak(points, getSpeed, options);
 }
 
-function gpsCorrelatesWithFused(fusedKmh, gpsPoints, tMs, options = {}) {
-  const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
-  const ratio = options.ratio ?? 0.45;
-  const slackKmh = options.slackKmh ?? 8;
+function gpsReferenceInWindow(gpsPoints, tMs, options = {}) {
   const windowStartMs = options.windowStartMs ?? tMs - PEAK_WINDOW_MS;
   const windowEndMs = options.windowEndMs ?? tMs + 250;
   const gpsAtT = gpsSpeedAtTime(gpsPoints, tMs);
   const gpsInWindow = maxGpsSpeedInWindow(gpsPoints, windowStartMs, windowEndMs);
-  const gpsRef = Math.max(gpsAtT, gpsInWindow);
+  return Math.max(gpsAtT, gpsInWindow);
+}
+
+function gpsCorrelatesWithFused(fusedKmh, gpsPoints, tMs, options = {}) {
+  const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
+  const headroom = options.headroomKmh ?? FUSION_HEADROOM_KMH;
+  // After clamping, correlation means “GPS saw real movement near this peak”.
+  const gpsRef = gpsReferenceInWindow(gpsPoints, tMs, options);
   if (gpsRef < minGpsKmh) return false;
-  return gpsRef >= fusedKmh * ratio || gpsRef >= fusedKmh - slackKmh;
+  return fusedKmh <= gpsRef + headroom + 0.05 || gpsRef >= fusedKmh * 0.7;
 }
 
 /**
- * Official GPS peak: highest mean speed over PEAK_WINDOW_MS.
+ * Official GPS peak: highest mean speed over PEAK_WINDOW_MS,
+ * with net path progress so F/B rocking cannot mint a record.
  */
 export function findSustainedGpsPeakKmh(gpsPoints, options = {}) {
   const kept = filterGpsPoints(gpsPoints);
@@ -339,16 +399,19 @@ export function findSustainedGpsPeakKmh(gpsPoints, options = {}) {
     minSpeedKmh: options.minSpeedKmh ?? MIN_GPS_CORRELATION_KMH,
     minSamples: options.minSamples ?? 2,
     stepMs: options.stepMs ?? 100,
+    requirePathProgress: options.requirePathProgress !== false,
+    minPathProgress: options.minPathProgress ?? MIN_PATH_PROGRESS,
   });
 }
 
 /**
- * Fused peak = highest mean over PEAK_WINDOW_MS, accepted only with GPS correlation.
- * Prevents IMU-only hand-waving from inflating the recorded peak.
+ * Fused peak = highest mean over PEAK_WINDOW_MS, accepted only with GPS correlation
+ * and enough net GPS progress in the same window (blocks F/B phone rocking).
  */
 export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
   const windowMs = options.windowMs ?? PEAK_WINDOW_MS;
   const minGpsKmh = options.minGpsKmh ?? MIN_GPS_CORRELATION_KMH;
+  const minPathProgress = options.minPathProgress ?? MIN_PATH_PROGRESS;
   const series = [...(fusedSeries || [])].sort((a, b) => a.t - b.t);
   const candidateKmh = series.length
     ? Math.max(...series.map((p) => fusedPointSpeedKmh(p)))
@@ -360,6 +423,7 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
       sustained: false,
       sustainedMs: 0,
       gpsCorrelated: false,
+      pathProgressOk: false,
       candidateKmh: 0,
     };
   }
@@ -377,22 +441,44 @@ export function findSustainedPeakKmh(fusedSeries, gpsPoints, options = {}) {
       sustained: false,
       sustainedMs: fusedWindow.sustainedMs,
       gpsCorrelated: false,
+      pathProgressOk: false,
       candidateKmh: Math.round(candidateKmh * 10) / 10,
     };
   }
 
   const anchorT = fusedWindow.windowEndMs ?? series[series.length - 1].t;
-  const gpsCorrelated = gpsCorrelatesWithFused(fusedWindow.peakKmh, gpsPoints, anchorT, {
+  const headroom = options.headroomKmh ?? FUSION_HEADROOM_KMH;
+  const gpsRef = gpsReferenceInWindow(gpsPoints, anchorT, {
+    windowStartMs: fusedWindow.windowStartMs,
+    windowEndMs: fusedWindow.windowEndMs,
+  });
+  // Cap hand/IMU inflation: record at most GPS + headroom in the same window.
+  const cappedPeakKmh =
+    Math.round(Math.min(fusedWindow.peakKmh, gpsRef > 0 ? gpsRef + headroom : fusedWindow.peakKmh) * 10) / 10;
+  const gpsCorrelated = gpsCorrelatesWithFused(cappedPeakKmh, gpsPoints, anchorT, {
     minGpsKmh,
+    headroomKmh: headroom,
     windowStartMs: fusedWindow.windowStartMs,
     windowEndMs: fusedWindow.windowEndMs,
   });
 
+  const pathInfo = windowPathProgress(
+    gpsPoints,
+    fusedWindow.windowStartMs,
+    fusedWindow.windowEndMs,
+    cappedPeakKmh
+  );
+  const pathProgressOk = !pathInfo || pathInfo.progress >= minPathProgress;
+
   return {
-    peakKmh: gpsCorrelated ? fusedWindow.peakKmh : 0,
+    peakKmh: gpsCorrelated && pathProgressOk ? cappedPeakKmh : 0,
     sustained: true,
     sustainedMs: fusedWindow.sustainedMs,
     gpsCorrelated,
+    pathProgressOk,
+    pathProgress: pathInfo,
+    gpsRefKmh: Math.round(gpsRef * 10) / 10,
+    uncappedPeakKmh: fusedWindow.peakKmh,
     candidateKmh: Math.round(candidateKmh * 10) / 10,
     windowStartMs: fusedWindow.windowStartMs,
     windowEndMs: fusedWindow.windowEndMs,
@@ -477,6 +563,11 @@ export function analyzeRun(session = {}) {
 
   const candidateKmh = sustainedPeak?.candidateKmh || 0;
   const gpsSustainedPeakKmh = peak.gpsSustainedPeakKmh || peak.gpsSustained?.peakKmh || 0;
+  const gpsPeakIgnoringProgress = findRollingMeanPeak(kept, gpsPointSpeedKmh, {
+    windowMs: PEAK_WINDOW_MS,
+    minSpeedKmh: MIN_GPS_CORRELATION_KMH,
+    requirePathProgress: false,
+  });
   const imuOnlySpike =
     candidateKmh >= 12 &&
     maxSpeedKmh < 10 &&
@@ -484,6 +575,16 @@ export function analyzeRun(session = {}) {
   if (imuOnlySpike) flags.push("imu_gps_mismatch");
   if (sustainedPeak?.sustained && !sustainedPeak.gpsCorrelated && candidateKmh >= 12) {
     flags.push("no_gps_correlation");
+  }
+  if (sustainedPeak?.sustained && sustainedPeak.pathProgressOk === false && candidateKmh >= 12) {
+    flags.push("oscillating_path");
+  }
+  if (
+    gpsPeakIgnoringProgress.peakKmh >= 12 &&
+    gpsSustainedPeakKmh < MIN_RECORDABLE_KMH &&
+    maxSpeedKmh < MIN_RECORDABLE_KMH
+  ) {
+    flags.push("oscillating_path");
   }
   if (
     maxSpeedKmh >= 12 &&
@@ -522,6 +623,11 @@ export function analyzeRun(session = {}) {
     valid = false;
     label = "imu_gps_mismatch";
     messageHe = "שיא המהירות לא אושר — אין התאמה מספקת ל-GPS (למשל הזזת הטלפון בלי ריצה).";
+  } else if (flags.includes("oscillating_path")) {
+    valid = false;
+    label = "oscillating_path";
+    messageHe =
+      "שיא לא אושר — זוהתה תנועה קדימה־אחורה בלי התקדמות מספקת. רוצו קדימה בקו ישר למדידת שיא.";
   } else if (flags.includes("no_sustained_peak")) {
     valid = false;
     label = "no_sustained_peak";
