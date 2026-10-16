@@ -167,6 +167,97 @@ test("firm pocket with little/no tilt is still credited", () => {
   assert.ok(analysis.maxSpeedKmh >= 10);
 });
 
+test("soft linear-accel pocket (iOS-style) still opens the meter", async () => {
+  // Many phones prefer acceleration (no g). Soft jeans → accStd often ~0.7–1.0.
+  const { Tracker } = await import("../js/tracker.js");
+  const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = Date.now();
+  const hz = 50;
+  const mPerDeg = 111320;
+  let x = 0;
+  const speed = 14;
+  for (let i = 0; i < 6 * hz; i++) {
+    const t = t0 + i * (1000 / hz);
+    const tSec = i / hz;
+    const bounce = 1.35 * Math.sin(2 * Math.PI * 2.9 * tSec);
+    x += (speed / 3.6) / hz;
+    if (i % hz === 0) {
+      tracker.ingest({
+        t,
+        speedKmh: speed,
+        accuracy: 20,
+        lat: 32.08 + x / mPerDeg,
+        lng: 34.78,
+      });
+    }
+    tracker.ingest({
+      t,
+      ax: bounce * 0.25,
+      ay: 0.1,
+      az: bounce,
+      accMag: Math.hypot(bounce * 0.25, 0.1, bounce),
+      tiltBeta: 2,
+      tiltGamma: 1,
+      linear: true,
+      includesGravity: false,
+      gravityHint: { gx: 0, gy: 0, gz: 9.81 },
+    });
+  }
+  const now = t0 + 6000;
+  const stats = motionStats(tracker.motion);
+  assert.equal(stats.linearAccel, true);
+  assert.ok(stats.accStd < 1.05, `expected soft linear bounce, got ${stats.accStd}`);
+  assert.equal(stats.runningLikeMotion, true);
+  assert.equal(tracker.hasDisplayableRun(now), true);
+  assert.ok(tracker.displaySpeedKmh(now) >= 8);
+  const analysis = analyzeRun(tracker.stop());
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 8);
+});
+
+test("phone-in-hand arm swing is capped near GPS ground speed", async () => {
+  const { Tracker } = await import("../js/tracker.js");
+  const { FUSION_HEADROOM_KMH } = await import("../js/anticheat.js");
+  const bodyKmh = 20;
+  const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  const mPerDeg = 111320;
+  const hz = 50;
+  let x = 0;
+  for (let i = 0; i < 6 * hz; i++) {
+    const tSec = i / hz;
+    const t = t0 + i * (1000 / hz);
+    const arm = 8 * Math.max(0, Math.sin(2 * Math.PI * 3.2 * tSec));
+    const bounce = 2.8 * Math.sin(2 * Math.PI * 3.0 * tSec);
+    x += (bodyKmh / 3.6) / hz;
+    if (i % hz === 0) {
+      tracker.ingest({
+        t,
+        speedKmh: bodyKmh,
+        accuracy: 8,
+        lat: 32.08 + x / mPerDeg,
+        lng: 34.78,
+      });
+    }
+    tracker.ingest({
+      t,
+      ax: 1.2 + arm,
+      ay: 0.4,
+      az: 9.81 + bounce,
+      accMag: Math.hypot(1.2 + arm, 0.4, 9.81 + bounce),
+      tiltBeta: 35 + 40 * Math.sin(2 * Math.PI * 3.2 * tSec),
+      tiltGamma: 15,
+      includesGravity: true,
+    });
+  }
+  const analysis = analyzeRun(tracker.stop());
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh <= bodyKmh + FUSION_HEADROOM_KMH + 0.8);
+  assert.ok(analysis.maxSpeedKmh >= bodyKmh - 2);
+});
+
 test("soft pocket bounce (damped jeans) still counts as a run", () => {
   const t0 = 1_000_000;
   const gps = [];
