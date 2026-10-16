@@ -216,9 +216,9 @@ test("soft linear-accel pocket (iOS-style) still opens the meter", async () => {
   assert.ok(analysis.maxSpeedKmh >= 8);
 });
 
-test("phone-in-hand arm swing is capped near GPS ground speed", async () => {
+test("phone-in-hand arm swing uses GPS run speed (not swing inflation)", async () => {
+  // Moving the hand while running is fine — record body/GPS speed only.
   const { Tracker } = await import("../js/tracker.js");
-  const { FUSION_HEADROOM_KMH } = await import("../js/anticheat.js");
   const bodyKmh = 20;
   const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
   tracker.startDemo();
@@ -252,10 +252,17 @@ test("phone-in-hand arm swing is capped near GPS ground speed", async () => {
       includesGravity: true,
     });
   }
-  const analysis = analyzeRun(tracker.stop());
+  const session = tracker.stop();
+  const stats = motionStats(session.motion);
+  assert.equal(stats.handLike, true);
+  assert.equal(stats.runningLikeMotion, true);
+  const analysis = analyzeRun(session);
   assert.equal(analysis.valid, true);
-  assert.ok(analysis.maxSpeedKmh <= bodyKmh + FUSION_HEADROOM_KMH + 0.8);
-  assert.ok(analysis.maxSpeedKmh >= bodyKmh - 2);
+  assert.equal(analysis.handLike, true);
+  // Official max = GPS ground speed — fused arm-swing (~27+) must not win.
+  assert.ok(analysis.maxSpeedKmh <= bodyKmh + 0.2, `max=${analysis.maxSpeedKmh}`);
+  assert.ok(analysis.maxSpeedKmh >= bodyKmh - 0.5, `max=${analysis.maxSpeedKmh}`);
+  assert.equal(analysis.speedSource, "gps_sustained");
 });
 
 test("soft pocket bounce (damped jeans) still counts as a run", () => {
