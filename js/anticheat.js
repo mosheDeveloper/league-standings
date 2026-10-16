@@ -21,7 +21,7 @@ export const SUSTAINED_PEAK_MS = PEAK_WINDOW_MS;
  */
 export const MIN_RUN_SUSTAIN_MS = 5000;
 /** Brief GPS/IMU glitches under this do not reset the sustain timer. */
-export const RUN_SUSTAIN_GAP_MS = 450;
+export const RUN_SUSTAIN_GAP_MS = 900;
 /** Minimum GPS/fused speed (km/h) that counts toward a run stretch. */
 export const MIN_RUN_SPEED_KMH = 6;
 /** Minimum GPS speed (km/h) in the peak window to confirm a fused peak. */
@@ -29,7 +29,10 @@ export const MIN_GPS_CORRELATION_KMH = 6;
 /** Below this, a finished run is not treated as a measurable (shareable) peak. */
 export const MIN_RECORDABLE_KMH = 8;
 /** Motion window used for live / sliding pattern checks. */
-export const MOTION_PATTERN_WINDOW_MS = 2500;
+export const MOTION_PATTERN_WINDOW_MS = 3000;
+/** Foot-cadence band (Hz) treated as running (jog → sprint). */
+export const RUN_CADENCE_MIN_HZ = 1.5;
+export const RUN_CADENCE_MAX_HZ = 4.6;
 const MS_PER_HOUR = 3.6;
 
 export function kmh(mpsVal) {
@@ -132,11 +135,50 @@ export function filterGpsSpikes(samples) {
 }
 
 /**
+ * Signed bounce series for cadence detection.
+ *
+ * Phones often expose linear acceleration (gravity removed). Taking |a| of that
+ * stream peaks twice per footfall and reports ~2× cadence — which then fails
+ * the run band and zeros the whole session. Prefer a signed axis when the
+ * stream looks linear; keep |acc| for gravity-inclusive samples (~9.8 ± bounce).
+ */
+export function bounceSeries(motion) {
+  const list = motion || [];
+  if (!list.length) return [];
+
+  const magOf = (m) =>
+    m.accMag ?? Math.hypot(Number(m.ax) || 0, Number(m.ay) || 0, Number(m.az) || 0);
+  const mags = list.map(magOf);
+  const hasAxes = list.some(
+    (m) =>
+      (m.ax != null && Number.isFinite(m.ax)) ||
+      (m.ay != null && Number.isFinite(m.ay)) ||
+      (m.az != null && Number.isFinite(m.az))
+  );
+  if (!hasAxes) return mags;
+
+  const linearVotes = list.filter((m) => m.linear === true).length;
+  const looksLinear = linearVotes >= list.length * 0.4 || mean(mags) < 6;
+  if (!looksLinear) return mags;
+
+  const xs = list.map((m) => Number(m.ax) || 0);
+  const ys = list.map((m) => Number(m.ay) || 0);
+  const zs = list.map((m) => Number(m.az) || 0);
+  const sx = stddev(xs);
+  const sy = stddev(ys);
+  const sz = stddev(zs);
+  if (sz >= sx && sz >= sy) return zs;
+  if (sy >= sx) return ys;
+  return xs;
+}
+
+/**
  * Classify IMU bounce as pocket running, hand-held running, or neither.
  *
- * Pocket / waist: foot cadence ~2–4.2 Hz, moderate accel variance, moderate tilt.
- * Hand while running: same foot cadence band (felt through the arm) plus larger
- * tilt from arm swing — still periodic, not a chaotic phone wave.
+ * Pocket / waist: foot cadence ~1.6–4.5 Hz, moderate accel variance.
+ * Tilt is helpful but optional — many phones deny DeviceOrientation, and a
+ * firm pocket can show almost no tilt while still being a real run.
+ * Hand while running: same cadence band plus larger tilt from arm swing.
  * Car / still: low bounce + low cadence. Hand wave without running: irregular
  * or out-of-band cadence / huge accel without a stable foot period.
  */
@@ -151,45 +193,55 @@ export function motionStats(motion) {
       handLike: false,
       runningLikeMotion: false,
       vehicleLike: false,
+      linearAccel: false,
     };
   }
-  const acc = motion.map((m) => m.accMag ?? Math.hypot(m.ax || 0, m.ay || 0, m.az || 0));
+  const mag = motion.map(
+    (m) => m.accMag ?? Math.hypot(Number(m.ax) || 0, Number(m.ay) || 0, Number(m.az) || 0)
+  );
+  const bounce = bounceSeries(motion);
+  const linearAccel = mean(mag) < 6 || motion.filter((m) => m.linear === true).length >= motion.length * 0.4;
   const durationSec = Math.max(0.001, (motion[motion.length - 1].t - motion[0].t) / 1000);
   const dt = durationSec / Math.max(1, motion.length - 1);
-  const hp = highPass(acc, 8);
-  const accStd = stddev(acc);
-  const thr = Math.max(0.2, stddev(hp) * 0.35);
+  const hp = highPass(bounce, 8);
+  // Use the stronger of magnitude / bounce variance so linear streams still score.
+  const accStd = Math.max(stddev(mag), stddev(bounce));
+  const thr = Math.max(0.15, stddev(hp) * 0.35);
   const cadenceHz = peakRateHz(hp, dt, thr);
   const betas = motion.map((m) => m.tiltBeta ?? m.beta).filter((v) => Number.isFinite(v));
   const gammas = motion.map((m) => m.tiltGamma ?? m.gamma).filter((v) => Number.isFinite(v));
   const tiltStd = Math.max(stddev(betas), stddev(gammas));
-  const cadenceScore = clamp((cadenceHz - 0.8) / 2.4, 0, 1);
+  const tiltAvailable = tiltStd >= 0.4;
+  const cadenceScore = clamp((cadenceHz - 0.7) / 2.5, 0, 1);
   const varScore = clamp(accStd / 4, 0, 1);
-  const tiltScore = clamp(tiltStd / 10, 0, 1);
-  const bounceScore = cadenceScore * 0.5 + varScore * 0.35 + tiltScore * 0.15;
+  // Missing orientation gets a neutral tilt prior so firm-pocket runs still score.
+  const tiltScore = tiltAvailable ? clamp(tiltStd / 10, 0, 1) : 0.35;
+  const bounceScore = cadenceScore * 0.55 + varScore * 0.35 + tiltScore * 0.1;
 
-  // Pocket / belt: clear step cadence, torso-scale bounce, limited tilt.
+  const cadenceOk =
+    cadenceHz >= RUN_CADENCE_MIN_HZ && cadenceHz <= RUN_CADENCE_MAX_HZ;
+
+  // Pocket / belt: step cadence + torso-scale bounce. No minimum tilt —
+  // orientation may be missing, and a tight pocket barely tilts.
   const pocketLike =
-    cadenceHz >= 2.0 &&
-    cadenceHz <= 4.2 &&
-    accStd >= 1.5 &&
-    accStd <= 9 &&
-    tiltStd >= 1.5 &&
-    tiltStd <= 28 &&
-    bounceScore >= 0.38;
+    cadenceOk &&
+    accStd >= 1.15 &&
+    accStd <= 11 &&
+    (!tiltAvailable || tiltStd <= 30) &&
+    bounceScore >= 0.32;
 
-  // Hand while running: arm swing raises tilt; foot period still shows in accel.
+  // Hand while running: arm swing usually raises tilt; if orientation is
+  // unavailable, require a bit more accel variance instead.
   const handLike =
-    cadenceHz >= 1.6 &&
-    cadenceHz <= 4.5 &&
-    accStd >= 1.8 &&
-    accStd <= 12 &&
-    tiltStd >= 5 &&
-    bounceScore >= 0.34;
+    cadenceOk &&
+    accStd >= 1.5 &&
+    accStd <= 14 &&
+    bounceScore >= 0.3 &&
+    (tiltStd >= 4 || (!tiltAvailable && accStd >= 2.2));
 
   const runningLikeMotion = pocketLike || handLike;
   // Smooth cabin motion — low bounce regardless of GPS speed.
-  const vehicleLike = accStd < 1.2 && cadenceHz < 1.5 && bounceScore < 0.28;
+  const vehicleLike = accStd < 1.15 && cadenceHz < 1.5 && bounceScore < 0.28;
 
   return {
     cadenceHz: Math.round(cadenceHz * 100) / 100,
@@ -200,6 +252,7 @@ export function motionStats(motion) {
     handLike,
     runningLikeMotion,
     vehicleLike,
+    linearAccel,
   };
 }
 
