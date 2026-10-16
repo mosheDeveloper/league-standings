@@ -7,8 +7,9 @@ import {
   validateGpsSample,
   fuseSession,
   gpsAccuracyToR,
+  haversineMeters,
 } from "../js/sensor-fusion.js";
-import { Tracker } from "../js/tracker.js";
+import { Tracker, buildLiveGpsIngest } from "../js/tracker.js";
 import { analyzeRun, resolvePeakSpeedKmh } from "../js/anticheat.js";
 
 test("Kalman predict integrates forward accel between GPS updates", () => {
@@ -135,6 +136,101 @@ test("approved speed updates only on accepted GPS while moving", () => {
   assert.ok(fusion.approvedSpeedKmh(2500) > 15);
   assert.ok(fusion.peakApprovedKmh() >= fusion.approvedSpeedKmh(2500));
   assert.ok(fusion.peakApprovedKmh() <= 24.5);
+});
+
+test("buildLiveGpsIngest uses wall clock, not lagged pos.timestamp", () => {
+  const wall = 2_000_000;
+  const pos = {
+    timestamp: wall - 3500,
+    coords: {
+      speed: 5, // m/s → 18 km/h
+      accuracy: 8,
+      latitude: 32.08,
+      longitude: 34.78,
+    },
+  };
+  const sample = buildLiveGpsIngest(pos, null, wall);
+  assert.ok(sample);
+  assert.equal(sample.t, wall);
+  assert.ok(Math.abs(sample.speedKmh - 18) < 0.01);
+});
+
+test("buildLiveGpsIngest skips unknown speed instead of coercing to 0", () => {
+  const wall = 2_000_000;
+  const pos = {
+    timestamp: wall,
+    coords: {
+      speed: null,
+      accuracy: 10,
+      latitude: 32.08,
+      longitude: 34.78,
+    },
+  };
+  assert.equal(buildLiveGpsIngest(pos, null, wall), null);
+});
+
+test("buildLiveGpsIngest derives speed from lat/lng with GPS device timestamps", () => {
+  const wall = 2_000_000;
+  const lat0 = 32.08;
+  const lng0 = 34.78;
+  // ~5 m north in 1 s ≈ 18 km/h
+  const lat1 = lat0 + 5 / 111_320;
+  const last = { lat: lat0, lng: lng0, gpsTimestamp: wall - 4500 };
+  const pos = {
+    timestamp: wall - 3500,
+    coords: { speed: null, accuracy: 9, latitude: lat1, longitude: lng0 },
+  };
+  const sample = buildLiveGpsIngest(pos, last, wall);
+  assert.ok(sample);
+  assert.equal(sample.t, wall);
+  const expected =
+    (haversineMeters(lat0, lng0, lat1, lng0) / 1) * 3.6;
+  assert.ok(Math.abs(sample.speedKmh - expected) < 0.5);
+});
+
+test("live meter opens when GPS shares the IMU wall clock (lagged GPS time would zero it)", () => {
+  const updates = [];
+  const tracker = new Tracker((u) => updates.push(u), { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const wall0 = Date.now();
+  const cadence = 3.15;
+  for (let i = 0; i <= 400; i++) {
+    const wall = wall0 + i * 15;
+    const tSec = (i * 15) / 1000;
+    const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
+    // IMU on wall clock
+    tracker.ingest({
+      t: wall,
+      ax: 4.5,
+      ay: 0.2,
+      az: 9.81,
+      accMag: 9.7 + bounce,
+      tiltBeta: 18 + 11 * Math.sin(2 * Math.PI * cadence * tSec),
+      tiltGamma: 4,
+      includesGravity: true,
+    });
+    if (i % 40 === 0) {
+      // Production path: buildLiveGpsIngest stamps wall time even if device GPS clock lags.
+      const sample = buildLiveGpsIngest(
+        {
+          timestamp: wall - 3000,
+          coords: {
+            speed: 5,
+            accuracy: 8,
+            latitude: 32.08 + (i / 40) * 0.00005,
+            longitude: 34.78,
+          },
+        },
+        null,
+        wall
+      );
+      tracker.ingest(sample);
+    }
+  }
+  const last = updates[updates.length - 1];
+  assert.equal(last.runReady, true);
+  assert.ok(last.speedKmh >= 16, `speed=${last.speedKmh}`);
+  assert.ok(last.maxKmh >= 8, `max=${last.maxKmh}`);
 });
 
 test("Tracker live UI hides speed until run sustain, then uses GPS-anchored speed", () => {
