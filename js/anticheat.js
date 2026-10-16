@@ -40,6 +40,11 @@ export const MOTION_PATTERN_WINDOW_MS = 3000;
 export const RUN_CADENCE_MIN_HZ = 1.5;
 export const RUN_CADENCE_MAX_HZ = 4.6;
 /**
+ * Phone-in-hand often reports ~2× foot cadence (rectified arm swing / |a|).
+ * Accept up to this peak rate when half-rate still sits in the foot band.
+ */
+export const HAND_CADENCE_MAX_HZ = 7.0;
+/**
  * Fused official peak may exceed GPS in the same window by at most this much
  * (pocket / waist — IMU recovers short sprint crests GPS under-samples).
  * Phone-in-hand: headroom is 0 — arm swing while running is fine for the
@@ -240,6 +245,14 @@ export function motionStats(motion) {
 
   const cadenceOk =
     cadenceHz >= RUN_CADENCE_MIN_HZ && cadenceHz <= RUN_CADENCE_MAX_HZ;
+  // Hand: rectified arm swing often peaks at ~2× foot rate (e.g. 2.8 → 5.6 Hz).
+  const halfCadence = cadenceHz / 2;
+  const handCadenceOk =
+    cadenceOk ||
+    (cadenceHz > RUN_CADENCE_MAX_HZ &&
+      cadenceHz <= HAND_CADENCE_MAX_HZ &&
+      halfCadence >= RUN_CADENCE_MIN_HZ &&
+      halfCadence <= RUN_CADENCE_MAX_HZ);
 
   // Pocket / belt: step cadence + torso-scale bounce. No minimum tilt —
   // orientation may be missing, and a tight pocket barely tilts.
@@ -255,15 +268,26 @@ export function motionStats(motion) {
     (!tiltAvailable || tiltStd <= 30) &&
     bounceScore >= pocketBounceFloor;
 
-  // Hand while running: arm swing usually raises tilt; if orientation is
-  // unavailable, require a bit more accel variance instead.
-  const handAccFloor = linearAccel ? 1.1 : 1.5;
+  // Hand while running: arm swing usually raises tilt. Gravity-inclusive
+  // streams often show LOW accStd (g dominates magnitude) while tiltStd is
+  // HIGH — that used to fail both pocket (tilt>30) and hand (accStd floor)
+  // → measured 0 on real hand-held jogs. Strong tilt ⇒ lower accel floor.
+  // No orientation: require a bit more accel variance instead.
+  const strongArmTilt = tiltStd >= 8;
+  const handAccFloor = strongArmTilt
+    ? linearAccel
+      ? 0.5
+      : 0.65
+    : linearAccel
+      ? 1.0
+      : 1.35;
   const handLike =
-    cadenceOk &&
+    handCadenceOk &&
     accStd >= handAccFloor &&
-    accStd <= 14 &&
-    bounceScore >= 0.3 &&
-    (tiltStd >= 4 || (!tiltAvailable && accStd >= (linearAccel ? 1.6 : 2.2)));
+    accStd <= 18 &&
+    bounceScore >= (strongArmTilt ? 0.2 : 0.28) &&
+    (tiltStd >= 3.5 ||
+      (!tiltAvailable && accStd >= (linearAccel ? 1.35 : 2.0)));
 
   const runningLikeMotion = pocketLike || handLike;
   // Smooth cabin motion — low bounce regardless of GPS speed.

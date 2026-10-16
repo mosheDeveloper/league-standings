@@ -107,6 +107,104 @@ test("hand-held running tilt is accepted as run-like; chaotic wave is not", () =
   assert.equal(motionStats(wave).runningLikeMotion, false);
 });
 
+test("hand-held jog with gravity + high tilt measures GPS speed (not 0)", async () => {
+  // Real hand runs: tiltStd often >30 (blocks pocket) while |a| std stays
+  // low because gravity dominates — previously scored no_run_sustain → 0.
+  const { Tracker } = await import("../js/tracker.js");
+  const bodyKmh = 13;
+  const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  const mPerDeg = 111320;
+  const hz = 50;
+  let x = 0;
+  for (let i = 0; i < 7 * hz; i++) {
+    const tSec = i / hz;
+    const t = t0 + i * (1000 / hz);
+    const foot = 2.9;
+    const ax = 7 * Math.sin(2 * Math.PI * foot * tSec);
+    const ay = 9.81 + 1.5 * Math.sin(2 * Math.PI * foot * tSec);
+    const az = 2 * Math.sin(2 * Math.PI * foot * tSec + 1);
+    x += (bodyKmh / 3.6) / hz;
+    if (i % hz === 0) {
+      tracker.ingest({
+        t,
+        speedKmh: bodyKmh,
+        accuracy: 12,
+        lat: 32.08 + x / mPerDeg,
+        lng: 34.78,
+      });
+    }
+    tracker.ingest({
+      t,
+      ax,
+      ay,
+      az,
+      accMag: Math.hypot(ax, ay, az),
+      tiltBeta: 40 + 50 * Math.sin(2 * Math.PI * foot * tSec),
+      tiltGamma: 12,
+      includesGravity: true,
+    });
+  }
+  const now = t0 + 7000;
+  const stats = motionStats(tracker.motion);
+  assert.ok(stats.tiltStd > 30, `tiltStd=${stats.tiltStd}`);
+  assert.equal(stats.pocketLike, false);
+  assert.equal(stats.handLike, true);
+  assert.equal(tracker.hasDisplayableRun(now), true);
+  assert.ok(tracker.displaySpeedKmh(now) >= 8);
+  const analysis = analyzeRun(tracker.stop());
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 10, `max=${analysis.maxSpeedKmh}`);
+  // Official peak stays on GPS — not arm-swing fusion.
+  assert.ok(analysis.maxSpeedKmh <= bodyKmh + 0.5);
+});
+
+test("hand-held rectified arm peaks (~2× cadence) still open the meter", async () => {
+  const { Tracker } = await import("../js/tracker.js");
+  const bodyKmh = 14;
+  const tracker = new Tracker(null, { officialPeakIntervalMs: 0 });
+  tracker.startDemo();
+  const t0 = 1_000_000;
+  const mPerDeg = 111320;
+  const hz = 50;
+  let x = 0;
+  for (let i = 0; i < 7 * hz; i++) {
+    const tSec = i / hz;
+    const t = t0 + i * (1000 / hz);
+    // Abs of 2.4 Hz arm → ~4.8 Hz peaks (outside foot band, inside hand 2× band).
+    const arm = 5 * Math.sin(2 * Math.PI * 2.4 * tSec);
+    x += (bodyKmh / 3.6) / hz;
+    if (i % hz === 0) {
+      tracker.ingest({
+        t,
+        speedKmh: bodyKmh,
+        accuracy: 12,
+        lat: 32.08 + x / mPerDeg,
+        lng: 34.78,
+      });
+    }
+    tracker.ingest({
+      t,
+      ax: Math.abs(arm),
+      ay: 0.5,
+      az: 0.8 + 1.2 * Math.sin(2 * Math.PI * 2.4 * tSec),
+      accMag: Math.hypot(Math.abs(arm), 0.5, 0.8),
+      tiltBeta: 30 + 40 * Math.sin(2 * Math.PI * 2.4 * tSec),
+      tiltGamma: 10,
+      linear: true,
+    });
+  }
+  const now = t0 + 7000;
+  const stats = motionStats(tracker.motion);
+  assert.ok(stats.cadenceHz > 4.6, `cadence=${stats.cadenceHz}`);
+  assert.equal(stats.handLike, true);
+  assert.equal(tracker.hasDisplayableRun(now), true);
+  const analysis = analyzeRun(tracker.stop());
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 10, `max=${analysis.maxSpeedKmh}`);
+});
+
 test("linear accel without orientation still counts as a real run (not 0)", () => {
   // Real phones often expose acceleration (gravity removed) and deny tilt.
   // |linear| doubles cadence — bounceSeries must use a signed axis instead.
