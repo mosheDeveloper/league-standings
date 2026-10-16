@@ -232,9 +232,11 @@ export class Tracker {
           gy,
           gz,
         });
-        if (Math.abs(aForward) > 0.35 || Math.abs(mag - 9.81) > 0.7) {
-          this._lastMovingAt = t;
-        }
+        // Linear streams have |mag|≪g; including-gravity uses residual over g.
+        const movingHint = linear
+          ? mag > 0.45 || Math.abs(aForward) > 0.3
+          : Math.abs(aForward) > 0.35 || Math.abs(mag - 9.81) > 0.7;
+        if (movingHint) this._lastMovingAt = t;
       } else {
         // Magnitude-only demos: feed residual over g as crude forward accel
         const a = Math.max(-6, Math.min(6, mag - 9.81));
