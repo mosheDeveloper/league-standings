@@ -41,10 +41,12 @@ export const RUN_CADENCE_MIN_HZ = 1.5;
 export const RUN_CADENCE_MAX_HZ = 4.6;
 /**
  * Fused official peak may exceed GPS in the same window by at most this much
- * (pocket). Phone-in-hand uses a tighter cap so arm swing ≠ recorded max.
+ * (pocket / waist — IMU recovers short sprint crests GPS under-samples).
+ * Phone-in-hand: headroom is 0 — arm swing while running is fine for the
+ * run gate, but the recorded max is ground (GPS) speed, not swing speed.
  */
 export const FUSION_HEADROOM_KMH = 3;
-export const FUSION_HEADROOM_HAND_KMH = 1.5;
+export const FUSION_HEADROOM_HAND_KMH = 0;
 /**
  * Net displacement / (mean_speed × window). Only enforced when GPS accuracy in
  * the window is good enough — noisy outdoor fixes must not zero real runs.
@@ -736,14 +738,27 @@ export function resolvePeakSpeedKmh(session = {}) {
 
   const gatedGps = pointsInWindows(kept, runWindows);
   const gpsSustained = findSustainedGpsPeakKmh(gatedGps);
-  // Phone-in-hand: tighter fusion headroom so arm swing ≠ the recorded max.
+  // Hand while running is OK (opens the sustain gate). Official max must be
+  // body/GPS speed — IMU arm-swing must not mint a higher record.
   const pattern = motionStats(motion);
-  const headroomKmh =
-    pattern.handLike && !pattern.pocketLike
-      ? FUSION_HEADROOM_HAND_KMH
-      : pattern.handLike
-        ? Math.min(FUSION_HEADROOM_KMH, FUSION_HEADROOM_HAND_KMH + 0.5)
-        : FUSION_HEADROOM_KMH;
+  const handGroundSpeedOnly = !!pattern.handLike;
+  const headroomKmh = handGroundSpeedOnly ? FUSION_HEADROOM_HAND_KMH : FUSION_HEADROOM_KMH;
+
+  if (handGroundSpeedOnly) {
+    return {
+      maxSpeedKmh: gpsSustained.peakKmh,
+      gpsMaxKmh: gpsMax,
+      gpsSustainedPeakKmh: gpsSustained.peakKmh,
+      source: gpsSustained.peakKmh > 0 ? "gps_sustained" : "gps_filtered",
+      fusionDebug: session.fusionDebug || null,
+      keptGps: kept.length,
+      sustainedPeak: null,
+      gpsSustained,
+      runWindows,
+      fusionHeadroomKmh: headroomKmh,
+      handGroundSpeedOnly: true,
+    };
+  }
 
   if (session.fused?.length) {
     const gatedFused = pointsInWindows(session.fused, runWindows);
@@ -889,7 +904,7 @@ export function analyzeRun(session = {}) {
     label = flags.includes("no_run_sustain") ? "no_run_sustain" : "no_speed";
     if (!flags.includes("no_speed")) flags.push("no_speed");
     messageHe =
-      `לא נמדדה ריצה. שימו את הטלפון בכיס, בחגורה או ביד יציבה בזמן ריצה — לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳ ברצף.`;
+      `לא נמדדה ריצה. שימו את הטלפון בכיס, בחגורה או ביד בזמן ריצה — לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳ ברצף.`;
   } else if (stillPhone && (measuredPeakKmh >= 12 || rawKeptMax >= 12)) {
     valid = false;
     label = "still_phone";
