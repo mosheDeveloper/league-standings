@@ -149,10 +149,13 @@ export function gpsAccuracyToR(accuracyM, baseR = 2.5) {
  * Reject GPS samples that teleport or imply impossible acceleration.
  * @returns {{ accept: boolean, reason: string|null }}
  */
+/** Keep aligned with anticheat MAX_GPS_ACCURACY_M / probeGps. */
+export const MAX_GPS_ACCURACY_M = 45;
+
 export function validateGpsSample(prev, next, options = {}) {
   const maxJumpKmhPerSec = options.maxJumpKmhPerSec ?? 45;
   const hardCapKmh = options.hardCapKmh ?? 72;
-  const maxAccuracy = options.maxAccuracy ?? 45;
+  const maxAccuracy = options.maxAccuracy ?? MAX_GPS_ACCURACY_M;
 
   if (!next || !Number.isFinite(next.speedKmh)) {
     return { accept: false, reason: "invalid_speed" };

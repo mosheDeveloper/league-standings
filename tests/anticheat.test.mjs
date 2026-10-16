@@ -8,6 +8,7 @@ import {
   findSustainedRunWindows,
   motionStats,
   MIN_RUN_SUSTAIN_MS,
+  MAX_GPS_ACCURACY_M,
 } from "../js/anticheat.js";
 import { rankAgainstTable, shareMessage } from "../js/compare.js";
 import { ascendingPersonalRecords } from "../js/pr-progress.js";
@@ -166,6 +167,69 @@ test("firm pocket with little/no tilt is still credited", () => {
   assert.ok(analysis.maxSpeedKmh >= 10);
 });
 
+test("soft pocket bounce (damped jeans) still counts as a run", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const cadence = 2.9;
+  for (let i = 0; i < 200; i++) {
+    const t = t0 + i * 40;
+    const bounce = 1.6 * Math.sin(2 * Math.PI * cadence * i * 0.04);
+    gps.push({ t, speedKmh: 14, accuracy: 12, lat: 32.08, lng: 34.78 });
+    motion.push({
+      t,
+      accMag: 9.7 + bounce,
+      ax: 0.4,
+      ay: 0.2,
+      az: 9.7 + bounce,
+      tiltBeta: 2,
+      tiltGamma: 1,
+      includesGravity: true,
+    });
+  }
+  const stats = motionStats(motion);
+  assert.ok(stats.accStd < 1.15, `expected soft bounce, got accStd=${stats.accStd}`);
+  assert.equal(stats.runningLikeMotion, true);
+  const analysis = analyzeRun({ gps, motion, durationMs: 8000 });
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 8);
+});
+
+test("outdoor GPS accuracy 41–45 m still yields a measurable peak", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const cadence = 3.1;
+  for (let i = 0; i < 200; i++) {
+    const t = t0 + i * 40;
+    const bounce = 4.0 * Math.sin(2 * Math.PI * cadence * i * 0.04);
+    if (i % 25 === 0) {
+      gps.push({
+        t,
+        speedKmh: 18,
+        accuracy: 42,
+        lat: 32.08 + i * 0.00001,
+        lng: 34.78,
+      });
+    }
+    motion.push({
+      t,
+      accMag: 9.7 + bounce,
+      ax: 2.2,
+      ay: 0.3,
+      az: 9.81,
+      tiltBeta: 16,
+      tiltGamma: 4,
+      includesGravity: true,
+    });
+  }
+  const kept = filterGpsPoints(gps);
+  assert.ok(kept.length >= 4, `kept=${kept.length}`);
+  const analysis = analyzeRun({ gps, motion, durationMs: 8000 });
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 8, `max=${analysis.maxSpeedKmh}`);
+});
+
 test("slow jog cadence (~1.85 Hz) sustains a measurable peak", () => {
   const t0 = 1_000_000;
   const gps = [];
@@ -186,6 +250,10 @@ test("slow jog cadence (~1.85 Hz) sustains a measurable peak", () => {
   assert.equal(analysis.valid, true);
   assert.ok(analysis.maxSpeedKmh >= 8, `max=${analysis.maxSpeedKmh}`);
   assert.ok((analysis.runWindows || []).length >= 1);
+});
+
+test("peak GPS filter accuracy cap matches fusion (45 m)", () => {
+  assert.equal(MAX_GPS_ACCURACY_M, 45);
 });
 
 test("sustained run windows require MIN_RUN_SUSTAIN_MS", () => {

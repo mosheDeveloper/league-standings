@@ -44,8 +44,14 @@ import {
   fetchScoresForFriends,
   enrichFriendsWithScores,
 } from "./community.js";
+import { APP_VERSION } from "./version.js";
 
 const $ = (id) => document.getElementById(id);
+
+function paintAppVersion() {
+  const el = $("app-version");
+  if (el) el.textContent = `v${APP_VERSION}`;
+}
 
 const state = {
   catalog: null,
@@ -1688,6 +1694,7 @@ function wireUi() {
 async function init() {
   // Wire clicks first so sport/league/team chips work even while tables load.
   wireUi();
+  paintAppVersion();
 
   state.catalog = await loadCatalog();
   state.selectedId = Store.getTableId();

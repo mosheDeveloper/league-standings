@@ -24,6 +24,12 @@ export const MIN_RUN_SUSTAIN_MS = 3000;
 export const RUN_SUSTAIN_GAP_MS = 900;
 /** Minimum GPS/fused speed (km/h) that counts toward a run stretch. */
 export const MIN_RUN_SPEED_KMH = 6;
+/**
+ * Drop GPS fixes worse than this (meters). Keep in sync with fusion /
+ * probeGps (45) — a tighter peak-only cap (e.g. 40) zeros outdoor runs that
+ * fusion already accepted at 41–45 m.
+ */
+export const MAX_GPS_ACCURACY_M = 45;
 /** Minimum GPS speed (km/h) in the peak window to confirm a fused peak. */
 export const MIN_GPS_CORRELATION_KMH = 6;
 /** Below this, a finished run is not treated as a measurable (shareable) peak. */
@@ -99,7 +105,7 @@ function percentile(sorted, p) {
  * Input points: { t, speedKmh, accuracy? }
  */
 export function filterGpsPoints(points, options = {}) {
-  const maxAccuracy = options.maxAccuracy ?? 40;
+  const maxAccuracy = options.maxAccuracy ?? MAX_GPS_ACCURACY_M;
   const maxJumpKmhPerSec = options.maxJumpKmhPerSec ?? 45;
   const hardCap = options.hardCap ?? 72;
   const sorted = [...(points || [])].sort((a, b) => a.t - b.t);
@@ -223,12 +229,13 @@ export function motionStats(motion) {
 
   // Pocket / belt: step cadence + torso-scale bounce. No minimum tilt —
   // orientation may be missing, and a tight pocket barely tilts.
+  // accStd floor ~1.0: firm jeans / waistband dampen bounce below the old 1.15.
   const pocketLike =
     cadenceOk &&
-    accStd >= 1.15 &&
+    accStd >= 1.0 &&
     accStd <= 11 &&
     (!tiltAvailable || tiltStd <= 30) &&
-    bounceScore >= 0.32;
+    bounceScore >= 0.28;
 
   // Hand while running: arm swing usually raises tilt; if orientation is
   // unavailable, require a bit more accel variance instead.
@@ -241,7 +248,7 @@ export function motionStats(motion) {
 
   const runningLikeMotion = pocketLike || handLike;
   // Smooth cabin motion — low bounce regardless of GPS speed.
-  const vehicleLike = accStd < 1.15 && cadenceHz < 1.5 && bounceScore < 0.28;
+  const vehicleLike = accStd < 1.0 && cadenceHz < 1.5 && bounceScore < 0.28;
 
   return {
     cadenceHz: Math.round(cadenceHz * 100) / 100,

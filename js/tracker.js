@@ -45,6 +45,8 @@ export class Tracker {
     this._runStretchStart = null;
     this._runLastGoodAt = null;
     this._lastSustainCheckT = null;
+    /** Last lat/lng + GPS device time for haversine when OS omits speed. */
+    this._lastGpsCoords = null;
   }
 
   /** Latest sample clock (tests/demos may use synthetic timestamps). */
@@ -361,25 +363,16 @@ export class Tracker {
     // Low-frequency spatial stream (~1 Hz from the OS; we don't force slower)
     this.watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        const { speed, accuracy, latitude, longitude } = pos.coords;
-        let speedKmh = speed != null && speed >= 0 ? speed * 3.6 : null;
-        const last = this.gps[this.gps.length - 1];
-        // Derive speed from lat/lng deltas when the OS omits instantaneous speed
-        if ((speedKmh == null || Number.isNaN(speedKmh)) && last?.lat != null) {
-          const dt = (pos.timestamp - last.t) / 1000;
-          if (dt > 0.3) {
-            const d = haversineMeters(last.lat, last.lng, latitude, longitude);
-            speedKmh = (d / dt) * 3.6;
-          }
-        }
-        this.ingest({
-          t: pos.timestamp || Date.now(),
-          speedKmh: speedKmh ?? 0,
-          accuracy,
-          lat: latitude,
-          lng: longitude,
-        });
-        this.gpsAccuracy = accuracy;
+        const sample = buildLiveGpsIngest(pos, this._lastGpsCoords, Date.now());
+        this._lastGpsCoords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          gpsTimestamp: pos.timestamp || Date.now(),
+        };
+        this.gpsAccuracy = pos.coords.accuracy;
+        // Skip null/unknown speed — never push 0 km/h (that zeros the meter).
+        if (sample) this.ingest(sample);
+        else this._emit();
       },
       (err) => {
         this.lastError = err.message;
@@ -439,6 +432,42 @@ export class Tracker {
 }
 
 /** One-shot GPS lock check before a run may start. */
+/**
+ * Normalize a GeolocationPosition into a Tracker.ingest GPS sample.
+ *
+ * Always stamps `t` with the wall clock (same as IMU). Using `pos.timestamp`
+ * can lag Date.now() by seconds on some phones — then approved-speed staleness
+ * and the run-sustain timer never open, so the live meter stays at 0.
+ *
+ * Returns null when speed is unknown (do not coerce to 0).
+ *
+ * @param {GeolocationPosition} pos
+ * @param {{ lat: number, lng: number, gpsTimestamp?: number, t?: number }|null} lastCoords
+ * @param {number} [now]
+ */
+export function buildLiveGpsIngest(pos, lastCoords = null, now = Date.now()) {
+  if (!pos?.coords) return null;
+  const { speed, accuracy, latitude, longitude } = pos.coords;
+  const gpsTimestamp = pos.timestamp || now;
+  let speedKmh = speed != null && speed >= 0 ? speed * 3.6 : null;
+  if ((speedKmh == null || Number.isNaN(speedKmh)) && lastCoords?.lat != null) {
+    const prevTs = lastCoords.gpsTimestamp ?? lastCoords.t ?? now;
+    const dt = (gpsTimestamp - prevTs) / 1000;
+    if (dt > 0.3) {
+      const d = haversineMeters(lastCoords.lat, lastCoords.lng, latitude, longitude);
+      speedKmh = (d / dt) * 3.6;
+    }
+  }
+  if (!Number.isFinite(speedKmh)) return null;
+  return {
+    t: now,
+    speedKmh,
+    accuracy,
+    lat: latitude,
+    lng: longitude,
+  };
+}
+
 export function probeGps({ timeout = 9000, maxAccuracyM = 45 } = {}) {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {

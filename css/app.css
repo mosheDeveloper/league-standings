@@ -46,6 +46,14 @@ body {
 .view.active { display: block; animation: in .35s ease; }
 @keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+.app-version {
+  margin: 0 0 6px;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
 .top { display: flex; justify-content: space-between; align-items: flex-start; }
 .hello { margin: 0; color: var(--dim); font-weight: 600; font-size: 14px; }
 h1, .page-title {
