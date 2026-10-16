@@ -106,6 +106,88 @@ test("hand-held running tilt is accepted as run-like; chaotic wave is not", () =
   assert.equal(motionStats(wave).runningLikeMotion, false);
 });
 
+test("linear accel without orientation still counts as a real run (not 0)", () => {
+  // Real phones often expose acceleration (gravity removed) and deny tilt.
+  // |linear| doubles cadence — bounceSeries must use a signed axis instead.
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const cadence = 2.9;
+  for (let i = 0; i < 200; i++) {
+    const t = t0 + i * 40;
+    const bounce = 3.5 * Math.sin(2 * Math.PI * cadence * i * 0.04);
+    gps.push({
+      t,
+      speedKmh: 17 + Math.sin(i / 10),
+      accuracy: 14,
+      lat: 32.08 + i * 0.00001,
+      lng: 34.78,
+    });
+    motion.push({
+      t,
+      ax: bounce,
+      ay: 0.2,
+      az: 0.5,
+      accMag: Math.hypot(bounce, 0.2, 0.5),
+      tiltBeta: 0,
+      tiltGamma: 0,
+      linear: true,
+    });
+  }
+  const stats = motionStats(motion);
+  assert.ok(stats.cadenceHz >= 2.2 && stats.cadenceHz <= 3.6, `cadence=${stats.cadenceHz}`);
+  assert.equal(stats.runningLikeMotion, true);
+  const analysis = analyzeRun({ gps, motion, durationMs: 8000 });
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 12, `max=${analysis.maxSpeedKmh}`);
+  assert.ok((analysis.runWindows || []).length >= 1);
+});
+
+test("firm pocket with little/no tilt is still credited", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const cadence = 3.0;
+  for (let i = 0; i < 200; i++) {
+    const t = t0 + i * 40;
+    const bounce = 3.2 * Math.sin(2 * Math.PI * cadence * i * 0.04);
+    gps.push({ t, speedKmh: 16, accuracy: 10, lat: 32.08, lng: 34.78 });
+    motion.push({
+      t,
+      accMag: 9.7 + bounce,
+      // Flat tilt — DeviceOrientation missing or phone locked in pocket.
+      tiltBeta: 0,
+      tiltGamma: 0,
+    });
+  }
+  assert.equal(motionStats(motion).runningLikeMotion, true);
+  const analysis = analyzeRun({ gps, motion, durationMs: 8000 });
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 10);
+});
+
+test("slow jog cadence (~1.85 Hz) sustains a measurable peak", () => {
+  const t0 = 1_000_000;
+  const gps = [];
+  const motion = [];
+  const cadence = 1.85;
+  for (let i = 0; i < 220; i++) {
+    const t = t0 + i * 40;
+    const bounce = 2.8 * Math.sin(2 * Math.PI * cadence * i * 0.04);
+    gps.push({ t, speedKmh: 11, accuracy: 12, lat: 32.08, lng: 34.78 });
+    motion.push({
+      t,
+      accMag: 9.7 + bounce,
+      tiltBeta: 8 + 4 * Math.sin(2 * Math.PI * cadence * i * 0.04),
+      tiltGamma: 2,
+    });
+  }
+  const analysis = analyzeRun({ gps, motion, durationMs: 8800 });
+  assert.equal(analysis.valid, true);
+  assert.ok(analysis.maxSpeedKmh >= 8, `max=${analysis.maxSpeedKmh}`);
+  assert.ok((analysis.runWindows || []).length >= 1);
+});
+
 test("sustained run windows require MIN_RUN_SUSTAIN_MS", () => {
   assert.equal(MIN_RUN_SUSTAIN_MS, 5000);
   const session = sessionFromSampler(sampleRunning, 8);
