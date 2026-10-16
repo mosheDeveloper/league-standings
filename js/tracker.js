@@ -108,7 +108,7 @@ export class Tracker {
   }
 
   /**
-   * Speedometer value: GPS-anchored speed only after ≥5 s of run-like motion.
+   * Speedometer value: GPS-anchored speed only after ≥3 s of run-like motion.
    * Hand waves, car travel, and brief jolts stay at 0.
    */
   displaySpeedKmh(now = this._sampleNow()) {
@@ -118,11 +118,11 @@ export class Tracker {
 
   /**
    * Live "שיא" must match the post-run official metric (rolling-window mean
-   * inside a ≥5 s run-like window). Stays 0 until that sustain is met.
+   * inside a ≥3 s run-like window). Stays 0 until that sustain is met.
    */
   liveApprovedMaxKmh(force = false) {
     const now = this._sampleNow();
-    // Hide max until the first ≥5 s run stretch; once recorded, keep it even
+    // Hide max until the first ≥3 s run stretch; once recorded, keep it even
     // if the live stretch drops (live speed goes to 0, שיא stays).
     if (
       this.active &&

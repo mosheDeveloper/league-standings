@@ -19,7 +19,7 @@ export const SUSTAINED_PEAK_MS = PEAK_WINDOW_MS;
  * Live speedometer + official metrics only use speed from a continuous run-like
  * stretch of at least this long (pocket or hand while actually running).
  */
-export const MIN_RUN_SUSTAIN_MS = 5000;
+export const MIN_RUN_SUSTAIN_MS = 3000;
 /** Brief GPS/IMU glitches under this do not reset the sustain timer. */
 export const RUN_SUSTAIN_GAP_MS = 900;
 /** Minimum GPS/fused speed (km/h) that counts toward a run stretch. */
