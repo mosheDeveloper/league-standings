@@ -55,8 +55,8 @@ test("car simulation is rejected and shows zero speed", () => {
   assert.ok(analysis.vehicleScore >= 0.55 || analysis.rawMaxKmh > 40);
 });
 
-test("brief run under 5s is not shown as a measured peak", () => {
-  const analysis = analyzeRun(sessionFromSampler(sampleRunning, 3));
+test("brief run under 3s is not shown as a measured peak", () => {
+  const analysis = analyzeRun(sessionFromSampler(sampleRunning, 2));
   assert.equal(analysis.valid, false);
   assert.equal(analysis.maxSpeedKmh, 0);
   assert.ok(
@@ -189,7 +189,7 @@ test("slow jog cadence (~1.85 Hz) sustains a measurable peak", () => {
 });
 
 test("sustained run windows require MIN_RUN_SUSTAIN_MS", () => {
-  assert.equal(MIN_RUN_SUSTAIN_MS, 5000);
+  assert.equal(MIN_RUN_SUSTAIN_MS, 3000);
   const session = sessionFromSampler(sampleRunning, 8);
   const windows = findSustainedRunWindows(session.motion, session.gps);
   assert.ok(windows.length >= 1);
@@ -385,14 +385,14 @@ test("live max and final max use the same official peak metric", async () => {
   assert.equal(session.officialPeakKmh, analysis.maxSpeedKmh);
 });
 
-test("speedometer stays at zero until 5s of run-like motion", async () => {
+test("speedometer stays at zero until 3s of run-like motion", async () => {
   const { Tracker } = await import("../js/tracker.js");
   const updates = [];
   const tracker = new Tracker((u) => updates.push(u), { officialPeakIntervalMs: 0 });
   tracker.startDemo();
   const t0 = 1_000_000;
   const cadence = 3.15;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 40; i++) {
     const t = t0 + i * 50;
     const tSec = i * 0.05;
     const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);
@@ -411,11 +411,11 @@ test("speedometer stays at zero until 5s of run-like motion", async () => {
       includesGravity: true,
     });
   }
-  // ~3 s — still below sustain gate
+  // ~2 s — still below sustain gate
   assert.equal(tracker.displaySpeedKmh(), 0);
   assert.equal(tracker.liveApprovedMaxKmh(), 0);
 
-  for (let i = 60; i < 140; i++) {
+  for (let i = 40; i < 140; i++) {
     const t = t0 + i * 50;
     const tSec = i * 0.05;
     const bounce = 4.2 * Math.sin(2 * Math.PI * cadence * tSec);

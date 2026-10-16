@@ -220,7 +220,7 @@ test("approved speed decays after GPS staleness window", () => {
 
 function ingestSustainedSprint(tracker, t0) {
   const cadence = 3.15;
-  // ≥5 s of pocket-like bounce + GPS so the speedometer gate opens.
+  // ≥3 s of pocket-like bounce + GPS so the speedometer gate opens.
   for (let i = 0; i <= 400; i++) {
     const t = t0 + i * 15;
     const tSec = (i * 15) / 1000;

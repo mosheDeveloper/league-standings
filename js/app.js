@@ -1,4 +1,4 @@
-import { analyzeRun, buildProfile } from "./anticheat.js";
+import { analyzeRun, buildProfile, MIN_RUN_SUSTAIN_MS } from "./anticheat.js";
 import {
   rankAgainstTable,
   buildAthletePool,
@@ -212,7 +212,7 @@ function renderRecords() {
       key === "local" ? `ב${boards.countryLabel}` : key === "friends" ? "בין החברים" : "בעולם";
     $("records-place").textContent = `את/ה במקום ${board.place} מתוך ${board.total} ${where}. שיא: ${myBest().toFixed(1)} קמ״ש`;
   } else if (state.session) {
-    $("records-place").textContent = "עדיין אין שיא — סיימו ריצה של לפחות 5 שנ׳ כדי להיכנס ללוח.";
+    $("records-place").textContent = `עדיין אין שיא — סיימו ריצה של לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳ כדי להיכנס ללוח.`;
   } else {
     $("records-place").textContent = "התחברו כדי לשמור את השיא שלכם מול המדינה והעולם.";
   }
@@ -582,7 +582,7 @@ function renderProfile() {
 }
 
 function onLive(update) {
-  // Live speed / max only after ≥5 s of run-like motion (pocket or hand).
+  // Live speed / max only after ≥3 s of run-like motion (pocket or hand).
   $("live-speed").textContent = (update.speedKmh || 0).toFixed(1);
   $("max-speed").textContent = (update.maxKmh || 0).toFixed(1);
   $("cadence").textContent = update.motion > 8 ? "חי" : "…";
@@ -593,7 +593,7 @@ function onLive(update) {
   if (update.gpsError) {
     $("live-status").textContent = "אבד אות GPS — חזרו לאוויר הפתוח";
   } else if (!update.runReady && (update.runSustainMs || 0) > 0) {
-    const left = Math.max(1, Math.ceil((5000 - (update.runSustainMs || 0)) / 1000));
+    const left = Math.max(1, Math.ceil((MIN_RUN_SUSTAIN_MS - (update.runSustainMs || 0)) / 1000));
     $("live-status").textContent = `מזהים ריצה · עוד ~${left} שנ׳ למדידה`;
   } else if (update.runReady) {
     $("live-status").textContent =
@@ -698,11 +698,13 @@ function renderResult() {
   badge.className = "pill " + (a.valid ? "ok" : "bad");
   badge.textContent = a.valid ? "ריצה" : "בלי מדידה";
   $("result-msg").textContent = a.messageHe;
-  $("share-line").textContent = a.valid ? r.share : "אין שיא לשיתוף — רוצו לפחות 5 שנ׳ עם תבנית ריצה.";
+  $("share-line").textContent = a.valid
+    ? r.share
+    : `אין שיא לשיתוף — רוצו לפחות ${MIN_RUN_SUSTAIN_MS / 1000} שנ׳ עם תבנית ריצה.`;
   $("share-block").hidden = !a.valid;
   const statusEl = $("result-status");
   if (statusEl) {
-    const sustainSec = Math.round((a.minRunSustainMs || 5000) / 1000);
+    const sustainSec = Math.round((a.minRunSustainMs || MIN_RUN_SUSTAIN_MS) / 1000);
     statusEl.textContent = a.valid ? `≥${sustainSec} שנ׳` : "—";
   }
 
@@ -939,7 +941,7 @@ function renderImproveSections() {
     if (speedChart) {
       const points = ascendingPersonalRecords(Store.getRuns());
       if (!points.length) {
-        speedChart.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה ראשונה (≥5 שנ׳) תפתח את הגרף.</div>`;
+        speedChart.innerHTML = `<div class="pr-chart-empty">עדיין אין שיאים עולים.<br>ריצה ראשונה (≥${MIN_RUN_SUSTAIN_MS / 1000} שנ׳) תפתח את הגרף.</div>`;
       } else {
         renderSpeedPrChart(speedChart, points);
       }
